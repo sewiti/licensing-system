@@ -10,6 +10,7 @@ import (
 	"github.com/apex/log"
 	"github.com/coreos/go-systemd/daemon"
 	"github.com/gorilla/handlers"
+	"github.com/sewiti/licensing-system/internal/db"
 	"github.com/sewiti/licensing-system/internal/web"
 	"github.com/vrischmann/envconfig"
 )
@@ -30,8 +31,20 @@ func main() {
 		syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	// Database
+	err = db.MigrateUp(cfg.DB.DataSource)
+	if err != nil {
+		log.WithError(err).Fatal("migrating database")
+		return
+	}
+	dbh, err := db.Open(cfg.DB.DataSource)
+	if err != nil {
+		log.WithError(err).Fatal("opening database")
+		return
+	}
+
 	// HTTP Handler
-	rt := web.NewRuntime()
+	rt := web.NewRuntime(dbh)
 	r := web.NewRouter(rt)
 	h := handlers.CORS(
 		handlers.AllowedHeaders(cfg.HTTP.CORS.AllowedHeaders),
@@ -67,5 +80,10 @@ func main() {
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
 		log.WithError(err).Error("shutting down http server")
+	}
+
+	err = dbh.Close()
+	if err != nil {
+		log.WithError(err).Error("closing database")
 	}
 }

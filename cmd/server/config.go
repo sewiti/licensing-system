@@ -13,4 +13,7 @@ type config struct {
 			AllowedOrigins []string `envconfig:"optional"`
 		}
 	}
+	DB struct {
+		DataSource string
+	}
 }
