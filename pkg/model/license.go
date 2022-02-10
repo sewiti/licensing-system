@@ -5,13 +5,17 @@ import (
 )
 
 type License struct {
-	ID          *[32]byte
-	Key         *[32]byte
-	Note        string
-	CustomData  string
+	ID  *[32]byte
+	Key *[32]byte
+
+	Note string
+
+	Data        interface{}
 	MaxSessions int
-	Created     time.Time
-	Updated     time.Time
-	LastUsed    *time.Time
-	IssuerID    int
+	ValidUntil  *time.Time
+
+	Created time.Time
+	Updated time.Time
+
+	IssuerID int
 }

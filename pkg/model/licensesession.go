@@ -3,8 +3,10 @@ package model
 import "time"
 
 type LicenseSession struct {
-	ID          *[32]byte
-	Key         *[32]byte
+	ClientID  *[32]byte
+	ServerID  *[32]byte
+	ServerKey *[32]byte
+
 	MachineUUID []byte
 	Created     time.Time
 	Expire      time.Time

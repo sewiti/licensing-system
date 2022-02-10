@@ -17,11 +17,11 @@ CREATE TABLE licenses
     id           bytea                    NOT NULL,
     key          bytea                    NOT NULL,
     note         character varying(256)   NOT NULL DEFAULT '',
-    custom_data  character varying(512)   NOT NULL DEFAULT '',
+    data         bytea,
     max_sessions integer                  NOT NULL DEFAULT 1,
+    valid_until  timestamp with time zone,
     created      timestamp with time zone NOT NULL DEFAULT NOW(),
     updated      timestamp with time zone NOT NULL DEFAULT NOW(),
-    last_used    timestamp with time zone,
     issuer_id    integer                  NOT NULL,
 
     CONSTRAINT licenses_pkey           PRIMARY KEY (id),
@@ -35,12 +35,13 @@ CREATE TABLE licenses
 
 CREATE TABLE license_sessions
 (
-    client_session_id  bytea NOT NULL,
-    server_session_key bytea NOT NULL,
-    machine_uuid       bytea NOT NULL,
+    client_session_id  bytea                    NOT NULL,
+    server_session_id  bytea                    NOT NULL,
+    server_session_key bytea                    NOT NULL,
+    machine_uuid       bytea                    NOT NULL,
     created            timestamp with time zone NOT NULL DEFAULT NOW(),
     expire             timestamp with time zone NOT NULL,
-    license_id         bytea NOT NULL,
+    license_id         bytea                    NOT NULL,
 
     CONSTRAINT license_sessions_pkey                PRIMARY KEY (client_session_id),
     CONSTRAINT license_sessions_machine_uuid_unique UNIQUE      (machine_uuid)

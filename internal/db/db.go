@@ -1,60 +1,56 @@
 package db
 
 import (
+	"context"
 	"database/sql"
-	"embed"
-	"fmt"
-	"os"
 	"strings"
 
-	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/source/iofs"
+	"github.com/Masterminds/squirrel"
 
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/lib/pq"
 )
 
-//go:embed migrations
-var migrationsDir embed.FS
+type Handler struct {
+	db *sql.DB
+	sq squirrel.StatementBuilderType
+}
 
-func Open(dataSource string) (*sql.DB, error) {
+func Open(dataSource string) (*Handler, error) {
 	var driver string
 	i := strings.IndexRune(dataSource, ':')
 	if i >= 0 {
 		driver = dataSource[:i]
 	}
-	return sql.Open(driver, dataSource)
+	db, err := sql.Open(driver, dataSource)
+	if err != nil {
+		return nil, err
+	}
+	var sq squirrel.StatementBuilderType
+	switch driver {
+	case "postgres":
+		sq = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+	default:
+		sq = squirrel.StatementBuilder
+	}
+	return &Handler{
+		db: db,
+		sq: sq.RunWith(db),
+	}, nil
 }
 
-func MigrateUp(dataSource string) error {
-	src, err := iofs.New(migrationsDir, "migrations")
-	if err != nil {
-		return fmt.Errorf("migrations source: %w", err)
-	}
-	m, err := migrate.NewWithSourceInstance("source", src, dataSource)
-	if err != nil {
-		_ = src.Close()
-		return fmt.Errorf("migrations instance: %w", err)
-	}
+func (h *Handler) Close() error {
+	return h.db.Close()
+}
 
-	err = m.Up()
-	switch err {
-	case nil:
-	case migrate.ErrNoChange:
-	case os.ErrNotExist:
-		// Schema is in unknown state, usually happens after application
-		// roll-back when schema is newer than application expected
-	default:
-		_, _ = m.Close()
-		return fmt.Errorf("migrations up: %w", err)
+func (h *Handler) execDelete(ctx context.Context, sq squirrel.DeleteBuilder, scope, action string) (int, error) {
+	res, err := sq.ExecContext(ctx)
+	if err != nil {
+		return 0, &Error{err: err, Scope: scope, Action: action}
 	}
-
-	errSrc, errDrv := m.Close()
-	if errSrc != nil {
-		return fmt.Errorf("migrations close: source: %w", errSrc)
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, &Error{err: err, Scope: scope, Action: action}
 	}
-	if errDrv != nil {
-		return fmt.Errorf("migrations close: driver: %w", errDrv)
-	}
-	return nil
+	return int(n), nil
 }
