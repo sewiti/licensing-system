@@ -2,13 +2,14 @@
 *
 
 # But not these files...
-!/.gitignore
-
+!.gitignore
+!.gitkeep
 
 !*.go
 !*.sql
 !go.sum
 !go.mod
+!**/testdata/**
 
 !README.md
 !LICENSE
