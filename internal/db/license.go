@@ -52,7 +52,7 @@ func (h *Handler) SelectLicenseByID(ctx context.Context, licenseID *[32]byte) (*
 	var id []byte
 	var key []byte
 	l := &model.License{}
-	err := row.Scan(
+	err := h.scanRow(row,
 		&id,
 		&key,
 		&l.Note,

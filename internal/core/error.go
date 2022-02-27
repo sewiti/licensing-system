@@ -3,11 +3,13 @@ package core
 import "errors"
 
 var (
-	ErrLicenseExpired        = errors.New("license has expired")
-	ErrLicenseSessionExpired = errors.New("license session has expired")
+	ErrLicenseExpired        = errors.New("core: license has expired")
+	ErrLicenseSessionExpired = errors.New("core: license session has expired")
 
-	ErrRateLimitReached = errors.New("rate limit has been reached")
-	ErrTimeOutOfSync    = errors.New("time out of sync")
+	ErrRateLimitReached = errors.New("core: rate limit has been reached")
+	ErrTimeOutOfSync    = errors.New("core: time out of sync")
+
+	ErrNotFound = errors.New("core: not found")
 )
 
 // SensitiveError wraps error that shouldn't be exposed to the client directly

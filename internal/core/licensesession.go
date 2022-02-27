@@ -3,8 +3,10 @@ package core
 import (
 	"context"
 	cryptorand "crypto/rand"
+	"errors"
 	"time"
 
+	"github.com/sewiti/licensing-system/internal/db"
 	"github.com/sewiti/licensing-system/internal/model"
 	"golang.org/x/crypto/nacl/box"
 )
@@ -59,6 +61,9 @@ func (c *Core) NewLicenseSession(ctx context.Context, l *model.License, clientSe
 func (c *Core) GetLicenseSession(ctx context.Context, clientSessionID *[32]byte) (*model.LicenseSession, error) {
 	ls, err := c.db.SelectLicenseSessionByID(ctx, clientSessionID)
 	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			return nil, ErrNotFound
+		}
 		return nil, &SensitiveError{
 			Message: "retrieving license session",
 			err:     err,
@@ -70,6 +75,9 @@ func (c *Core) GetLicenseSession(ctx context.Context, clientSessionID *[32]byte)
 func (c *Core) GetLicenseSessionsCount(ctx context.Context, licenseID *[32]byte) (int, error) {
 	count, err := c.db.SelectLicenseSessionsCountByLicenseID(ctx, licenseID)
 	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			return 0, ErrNotFound
+		}
 		return 0, &SensitiveError{
 			Message: "retrieving license sessions count",
 			err:     err,

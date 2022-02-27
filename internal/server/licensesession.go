@@ -49,7 +49,13 @@ func createLicenseSession(c *core.Core) apiHandler {
 		}
 		l, err := c.GetLicense(r.Context(), req.LicenseID)
 		if err != nil {
-			return responseNotFound()
+			if err, ok := err.(*core.SensitiveError); ok {
+				log.WithError(err.Unwrap()).Errorf("%s: %s", scope, err.Message)
+			}
+			if errors.Is(err, core.ErrNotFound) {
+				return responseNotFound()
+			}
+			return responseInternalServerError()
 		}
 
 		var data createLicenseSessionReqData
@@ -139,7 +145,13 @@ func updateLicenseSession(c *core.Core) apiHandler {
 		}
 		ls, err := c.GetLicenseSession(r.Context(), (*[32]byte)(clientSessionID))
 		if err != nil {
-			return responseNotFound()
+			if err, ok := err.(*core.SensitiveError); ok {
+				log.WithError(err.Unwrap()).Errorf("%s: %s", scope, err.Message)
+			}
+			if errors.Is(err, core.ErrNotFound) {
+				return responseNotFound()
+			}
+			return responseInternalServerError()
 		}
 		var reqData updateLicenseSessionReqData
 		err = util.OpenJsonBox(&reqData, req.Data, req.N, ls.ClientID, ls.ServerKey)
@@ -149,7 +161,13 @@ func updateLicenseSession(c *core.Core) apiHandler {
 
 		l, err := c.GetLicense(r.Context(), ls.LicenseID)
 		if err != nil {
-			return responseNotFound()
+			if err, ok := err.(*core.SensitiveError); ok {
+				log.WithError(err.Unwrap()).Errorf("%s: %s", scope, err.Message)
+			}
+			if errors.Is(err, core.ErrNotFound) {
+				return responseNotFound()
+			}
+			return responseInternalServerError()
 		}
 		refresh, err := c.UpdateLicenseSession(r.Context(), ls, l, reqData.Timestamp)
 		if err != nil {
@@ -201,6 +219,7 @@ type deleteLicenseSessionReqData struct {
 }
 
 func deleteLicenseSession(c *core.Core) apiHandler {
+	const scope = "delete license-session"
 	return func(r *http.Request) *apiResponse {
 		clientSessionIDStr, ok := mux.Vars(r)["CSID"] // client session id
 		if !ok {
@@ -218,7 +237,13 @@ func deleteLicenseSession(c *core.Core) apiHandler {
 		}
 		ls, err := c.GetLicenseSession(r.Context(), (*[32]byte)(clientSessionID))
 		if err != nil {
-			return responseNotFound()
+			if err, ok := err.(*core.SensitiveError); ok {
+				log.WithError(err.Unwrap()).Errorf("%s: %s", scope, err.Message)
+			}
+			if errors.Is(err, core.ErrNotFound) {
+				return responseNotFound()
+			}
+			return responseInternalServerError()
 		}
 		var reqData deleteLicenseSessionReqData
 		err = util.OpenJsonBox(&reqData, req.Data, req.N, ls.ClientID, ls.ServerKey)

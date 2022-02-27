@@ -66,7 +66,10 @@ func responseForbidden(a ...interface{}) *apiResponse {
 }
 
 func responseNotFound() *apiResponse {
-	return responseJsonMsg(http.StatusNotFound, "404 Not Found")
+	return &apiResponse{
+		statusCode: http.StatusNotFound,
+		body:       []byte("404 Not Found"),
+	}
 }
 
 func responseConflict(a ...interface{}) *apiResponse {

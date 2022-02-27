@@ -53,7 +53,7 @@ func (h *Handler) SelectLicenseSessionByID(ctx context.Context, clientSessionID 
 		QueryRowContext(ctx)
 
 	ls := &model.LicenseSession{}
-	err := row.Scan(
+	err := h.scanRow(row,
 		&clientID,
 		&serverID,
 		&serverKey,
@@ -73,7 +73,10 @@ func (h *Handler) SelectLicenseSessionByID(ctx context.Context, clientSessionID 
 }
 
 func (h *Handler) SelectLicenseSessionsCountByLicenseID(ctx context.Context, licenseID *[32]byte) (int, error) {
-	const action = "SelectCountByLicenseID"
+	const (
+		action = "SelectCountByLicenseID"
+		scope  = licenseSessionsTable
+	)
 	row := h.sq.Select(
 		"COUNT(*)",
 	).
@@ -83,9 +86,9 @@ func (h *Handler) SelectLicenseSessionsCountByLicenseID(ctx context.Context, lic
 		}).
 		QueryRowContext(ctx)
 	var count int
-	err := row.Scan(&count)
+	err := h.scanRow(row, &count)
 	if err != nil {
-		return 0, &Error{err: err, Scope: licenseSessionsTable, Action: action}
+		return 0, &Error{err: err, Scope: scope, Action: action}
 	}
 	return count, nil
 }

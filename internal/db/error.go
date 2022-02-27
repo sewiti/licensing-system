@@ -1,6 +1,11 @@
 package db
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+var ErrNotFound = errors.New("not found")
 
 type Error struct {
 	Scope  string
