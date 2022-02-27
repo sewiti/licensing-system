@@ -11,7 +11,7 @@ const licensesTable = "licenses"
 
 func (h *Handler) InsertLicense(ctx context.Context, l *model.License) error {
 	const action = "Insert"
-	_, err := h.sq.Insert(licensesTable).
+	sq := h.sq.Insert(licensesTable).
 		SetMap(map[string]interface{}{
 			"id":           l.ID[:],
 			"key":          l.Key[:],
@@ -22,8 +22,9 @@ func (h *Handler) InsertLicense(ctx context.Context, l *model.License) error {
 			"created":      l.Created,
 			"updated":      l.Updated,
 			"issuer_id":    l.IssuerID,
-		}).
-		ExecContext(ctx)
+		})
+
+	_, err := sq.ExecContext(ctx)
 	if err != nil {
 		return &Error{err: err, Scope: licensesTable, Action: action}
 	}
@@ -32,7 +33,7 @@ func (h *Handler) InsertLicense(ctx context.Context, l *model.License) error {
 
 func (h *Handler) SelectLicenseByID(ctx context.Context, licenseID *[32]byte) (*model.License, error) {
 	const action = "SelectByID"
-	row := h.sq.Select(
+	sq := h.sq.Select(
 		"id",
 		"key",
 		"note",
@@ -46,13 +47,12 @@ func (h *Handler) SelectLicenseByID(ctx context.Context, licenseID *[32]byte) (*
 		From(licensesTable).
 		Where(squirrel.Eq{
 			"id": licenseID[:],
-		}).
-		QueryRowContext(ctx)
+		})
 
 	var id []byte
 	var key []byte
 	l := &model.License{}
-	err := h.scanRow(row,
+	err := h.scanRow(sq.QueryRowContext(ctx),
 		&id,
 		&key,
 		&l.Note,

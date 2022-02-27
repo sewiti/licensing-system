@@ -13,7 +13,7 @@ const licenseSessionsTable = "license_sessions"
 
 func (h *Handler) InsertLicenseSession(ctx context.Context, ls *model.LicenseSession) error {
 	const action = "Insert"
-	_, err := h.sq.Insert(licenseSessionsTable).
+	sq := h.sq.Insert(licenseSessionsTable).
 		SetMap(map[string]interface{}{
 			"client_session_id":  ls.ClientID[:],
 			"server_session_id":  ls.ServerID[:],
@@ -22,8 +22,8 @@ func (h *Handler) InsertLicenseSession(ctx context.Context, ls *model.LicenseSes
 			"created":            ls.Created,
 			"expire":             ls.Expire,
 			"license_id":         ls.LicenseID[:],
-		}).
-		ExecContext(ctx)
+		})
+	_, err := sq.ExecContext(ctx)
 	if err != nil {
 		return &Error{err: err, Scope: licenseSessionsTable, Action: action}
 	}
@@ -37,7 +37,7 @@ func (h *Handler) SelectLicenseSessionByID(ctx context.Context, clientSessionID 
 	var serverID []byte
 	var serverKey []byte
 	var licenseID []byte
-	row := h.sq.Select(
+	sq := h.sq.Select(
 		"client_session_id",
 		"server_session_id",
 		"server_session_key",
@@ -49,11 +49,10 @@ func (h *Handler) SelectLicenseSessionByID(ctx context.Context, clientSessionID 
 		From(licenseSessionsTable).
 		Where(squirrel.Eq{
 			"client_session_id": clientSessionID[:],
-		}).
-		QueryRowContext(ctx)
+		})
 
 	ls := &model.LicenseSession{}
-	err := h.scanRow(row,
+	err := h.scanRow(sq.QueryRowContext(ctx),
 		&clientID,
 		&serverID,
 		&serverKey,
@@ -77,16 +76,16 @@ func (h *Handler) SelectLicenseSessionsCountByLicenseID(ctx context.Context, lic
 		action = "SelectCountByLicenseID"
 		scope  = licenseSessionsTable
 	)
-	row := h.sq.Select(
+	sq := h.sq.Select(
 		"COUNT(*)",
 	).
 		From(licenseSessionsTable).
 		Where(squirrel.Eq{
 			"license_id": licenseID[:],
-		}).
-		QueryRowContext(ctx)
+		})
+
 	var count int
-	err := h.scanRow(row, &count)
+	err := h.scanRow(sq.QueryRowContext(ctx), &count)
 	if err != nil {
 		return 0, &Error{err: err, Scope: scope, Action: action}
 	}
@@ -95,7 +94,7 @@ func (h *Handler) SelectLicenseSessionsCountByLicenseID(ctx context.Context, lic
 
 func (h *Handler) UpdateLicenseSession(ctx context.Context, ls *model.LicenseSession) error {
 	const action = "Update"
-	_, err := h.sq.Update(licenseSessionsTable).
+	sq := h.sq.Update(licenseSessionsTable).
 		SetMap(map[string]interface{}{
 			"server_session_id":  ls.ServerID[:],
 			"server_session_key": ls.ServerKey[:],
@@ -106,8 +105,9 @@ func (h *Handler) UpdateLicenseSession(ctx context.Context, ls *model.LicenseSes
 		}).
 		Where(squirrel.Eq{
 			"client_session_id": ls.ClientID[:],
-		}).
-		ExecContext(ctx)
+		})
+
+	_, err := sq.ExecContext(ctx)
 	if err != nil {
 		return &Error{err: err, Scope: licenseSessionsTable, Action: action}
 	}
@@ -117,7 +117,7 @@ func (h *Handler) UpdateLicenseSession(ctx context.Context, ls *model.LicenseSes
 func (h *Handler) DeleteLicenseSessionBySessionID(ctx context.Context, clientSessionID *[32]byte) (int, error) {
 	sq := h.sq.Delete(licenseSessionsTable).
 		Where(squirrel.Eq{
-			"license_id": clientSessionID[:],
+			"server_session_id": clientSessionID[:],
 		})
 	return h.execDelete(ctx, sq, licenseSessionsTable, "DeleteBySessionID")
 }

@@ -3,6 +3,7 @@ module github.com/sewiti/licensing-system
 go 1.17
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/Masterminds/squirrel v1.5.2
 	github.com/apex/log v1.9.0
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
