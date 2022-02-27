@@ -5,15 +5,14 @@ import (
 	cryptorand "crypto/rand"
 	"time"
 
-	"github.com/sewiti/licensing-system/pkg/model"
+	"github.com/sewiti/licensing-system/internal/model"
 	"golang.org/x/crypto/nacl/box"
 )
 
-func (c *Core) NewLicenseSession(ctx context.Context, l *model.License, clientSessionID *[32]byte, machineUUID []byte, clientTime time.Time) (ls *model.LicenseSession, refresh time.Time, err error) {
+func (c *Core) NewLicenseSession(ctx context.Context, l *model.License, clientSessionID *[32]byte, machineID []byte, clientTime time.Time) (ls *model.LicenseSession, refresh time.Time, err error) {
 	now := time.Now()
-	err = c.verifyTimeSync(now, clientTime)
-	if err != nil {
-		return nil, time.Time{}, err
+	if !c.timeInSync(now, clientTime) {
+		return nil, time.Time{}, ErrTimeOutOfSync
 	}
 	if l.ValidUntil != nil && l.ValidUntil.Before(now) {
 		return nil, time.Time{}, ErrLicenseExpired
@@ -24,23 +23,23 @@ func (c *Core) NewLicenseSession(ctx context.Context, l *model.License, clientSe
 	}
 	// Max sessions are taken care of by the cleanup routine.
 
-	id, key, err := box.GenerateKey(cryptorand.Reader)
+	serverID, serverKey, err := box.GenerateKey(cryptorand.Reader)
 	if err != nil {
 		return nil, time.Time{}, err
 	}
 
 	refresh, expiry := c.calcLicenseSessionTimes(now, now)
 	s := &model.LicenseSession{
-		ClientID:    clientSessionID,
-		ServerID:    id,
-		ServerKey:   key,
-		MachineUUID: machineUUID,
-		Created:     now,
-		Expire:      expiry,
-		LicenseID:   l.ID,
+		ClientID:  clientSessionID,
+		ServerID:  serverID,
+		ServerKey: serverKey,
+		MachineID: machineID,
+		Created:   now,
+		Expire:    expiry,
+		LicenseID: l.ID,
 	}
 	// Delete old client's license sessions
-	_, err = c.db.DeleteLicenseSessionsByLicenseIDAndMachineUUID(ctx, l.ID, machineUUID)
+	_, err = c.db.DeleteLicenseSessionsByLicenseIDAndMachineID(ctx, l.ID, machineID)
 	if err != nil {
 		return nil, time.Time{}, &SensitiveError{
 			Message: "creating license session",
@@ -81,9 +80,8 @@ func (c *Core) GetLicenseSessionsCount(ctx context.Context, licenseID *[32]byte)
 
 func (c *Core) UpdateLicenseSession(ctx context.Context, ls *model.LicenseSession, l *model.License, clientTime time.Time) (refresh time.Time, err error) {
 	now := time.Now()
-	err = c.verifyTimeSync(now, clientTime)
-	if err != nil {
-		return time.Time{}, err
+	if !c.timeInSync(now, clientTime) {
+		return time.Time{}, ErrTimeOutOfSync
 	}
 	if l.ValidUntil != nil && l.ValidUntil.Before(now) {
 		return time.Time{}, ErrLicenseExpired
@@ -107,6 +105,7 @@ func (c *Core) UpdateLicenseSession(ctx context.Context, ls *model.LicenseSessio
 }
 
 func (c *Core) DeleteLicenseSession(ctx context.Context, clientSessionID *[32]byte) error {
+	// We don't care about client time when deleting session.
 	_, err := c.db.DeleteLicenseSessionBySessionID(ctx, clientSessionID)
 	if err != nil {
 		return &SensitiveError{

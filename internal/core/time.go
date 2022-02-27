@@ -4,15 +4,12 @@ import (
 	"time"
 )
 
-// verifyTimeSync returns ErrTimeOutOfSync if client time has  drifted from
-// server time too far (defined by c.maxTimeDrift).
-func (c *Core) verifyTimeSync(server, client time.Time) error {
+// timeInSync reports whether client time is in sync with server time, i. e,
+// haven't drifted from server time too far (defined by c.maxTimeDrift).
+func (c *Core) timeInSync(server, client time.Time) bool {
 	lowerBound := server.Add(-c.maxTimeDrift)
 	upperBound := server.Add(c.maxTimeDrift)
-	if client.Before(lowerBound) || client.After(upperBound) {
-		return ErrTimeOutOfSync
-	}
-	return nil
+	return client.After(lowerBound) && client.Before(upperBound)
 }
 
 // calcLicenseSessionTimes calculates license session refresh and expire times.

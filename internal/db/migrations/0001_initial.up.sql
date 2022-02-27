@@ -38,15 +38,15 @@ CREATE TABLE license_sessions
     client_session_id  bytea                    NOT NULL,
     server_session_id  bytea                    NOT NULL,
     server_session_key bytea                    NOT NULL,
-    machine_uuid       bytea                    NOT NULL,
+    machine_id         bytea                    NOT NULL,
     created            timestamp with time zone NOT NULL DEFAULT NOW(),
     expire             timestamp with time zone NOT NULL,
     license_id         bytea                    NOT NULL,
 
-    CONSTRAINT license_sessions_pkey                PRIMARY KEY (client_session_id),
-    CONSTRAINT license_sessions_machine_uuid_unique UNIQUE      (machine_uuid)
+    CONSTRAINT license_sessions_pkey              PRIMARY KEY (client_session_id),
+    CONSTRAINT license_sessions_machine_id_unique UNIQUE      (machine_id)
         INCLUDE (client_session_id),
-    CONSTRAINT license_sessions_license_id_fkey     FOREIGN KEY (license_id)
+    CONSTRAINT license_sessions_license_id_fkey   FOREIGN KEY (license_id)
         REFERENCES licenses (id) MATCH SIMPLE
         ON UPDATE RESTRICT
         ON DELETE RESTRICT

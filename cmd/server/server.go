@@ -72,7 +72,7 @@ func runServer() {
 		}()
 	}
 
-	// Router
+	// Server router
 	r := server.NewRouter(c,
 		cfg.HTTP.CORS.Enabled,
 		cfg.HTTP.CORS.AllowedOrigins)

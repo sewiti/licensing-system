@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/Masterminds/squirrel"
-	"github.com/sewiti/licensing-system/pkg/model"
+	"github.com/sewiti/licensing-system/internal/model"
 )
 
 const licenseSessionsTable = "license_sessions"
@@ -18,7 +18,7 @@ func (h *Handler) InsertLicenseSession(ctx context.Context, ls *model.LicenseSes
 			"client_session_id":  ls.ClientID[:],
 			"server_session_id":  ls.ServerID[:],
 			"server_session_key": ls.ServerKey[:],
-			"machine_uuid":       ls.MachineUUID,
+			"machine_id":         ls.MachineID,
 			"created":            ls.Created,
 			"expire":             ls.Expire,
 			"license_id":         ls.LicenseID[:],
@@ -41,7 +41,7 @@ func (h *Handler) SelectLicenseSessionByID(ctx context.Context, clientSessionID 
 		"client_session_id",
 		"server_session_id",
 		"server_session_key",
-		"machine_uuid",
+		"machine_id",
 		"created",
 		"expire",
 		"license_id",
@@ -57,7 +57,7 @@ func (h *Handler) SelectLicenseSessionByID(ctx context.Context, clientSessionID 
 		&clientID,
 		&serverID,
 		&serverKey,
-		&ls.MachineUUID,
+		&ls.MachineID,
 		&ls.Created,
 		&ls.Expire,
 		&licenseID,
@@ -96,7 +96,7 @@ func (h *Handler) UpdateLicenseSession(ctx context.Context, ls *model.LicenseSes
 		SetMap(map[string]interface{}{
 			"server_session_id":  ls.ServerID[:],
 			"server_session_key": ls.ServerKey[:],
-			"machine_uuid":       ls.MachineUUID,
+			"machine_id":         ls.MachineID,
 			"created":            ls.Created,
 			"expire":             ls.Expire,
 			"license_id":         ls.LicenseID[:],
@@ -119,13 +119,13 @@ func (h *Handler) DeleteLicenseSessionBySessionID(ctx context.Context, clientSes
 	return h.execDelete(ctx, sq, licenseSessionsTable, "DeleteBySessionID")
 }
 
-func (h *Handler) DeleteLicenseSessionsByLicenseIDAndMachineUUID(ctx context.Context, licenseID *[32]byte, machineUUID []byte) (int, error) {
+func (h *Handler) DeleteLicenseSessionsByLicenseIDAndMachineID(ctx context.Context, licenseID *[32]byte, machineID []byte) (int, error) {
 	sq := h.sq.Delete(licenseSessionsTable).
 		Where(squirrel.Eq{
-			"machine_uuid": machineUUID,
-			"license_id":   licenseID[:],
+			"machine_id": machineID,
+			"license_id": licenseID[:],
 		})
-	return h.execDelete(ctx, sq, licenseSessionsTable, "DeleteByLicenseIDAndMachineUUID")
+	return h.execDelete(ctx, sq, licenseSessionsTable, "DeleteByLicenseIDAndMachineID")
 }
 
 func (h *Handler) DeleteLicenseSessionsExpiredBy(ctx context.Context, now time.Time) (int, error) {

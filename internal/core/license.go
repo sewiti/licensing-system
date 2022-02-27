@@ -3,7 +3,7 @@ package core
 import (
 	"context"
 
-	"github.com/sewiti/licensing-system/pkg/model"
+	"github.com/sewiti/licensing-system/internal/model"
 )
 
 func (c *Core) GetLicense(ctx context.Context, licenseID *[32]byte) (*model.License, error) {

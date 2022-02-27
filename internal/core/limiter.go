@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/patrickmn/go-cache"
-	"github.com/sewiti/licensing-system/pkg/model"
+	"github.com/sewiti/licensing-system/internal/model"
 	"golang.org/x/time/rate"
 )
 

@@ -7,8 +7,8 @@ type LicenseSession struct {
 	ServerID  *[32]byte
 	ServerKey *[32]byte
 
-	MachineUUID []byte
-	Created     time.Time
-	Expire      time.Time
-	LicenseID   *[32]byte
+	MachineID []byte
+	Created   time.Time
+	Expire    time.Time
+	LicenseID *[32]byte
 }

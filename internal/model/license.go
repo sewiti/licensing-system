@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -10,7 +11,7 @@ type License struct {
 
 	Note string
 
-	Data        interface{}
+	Data        json.RawMessage
 	MaxSessions int
 	ValidUntil  *time.Time
 
