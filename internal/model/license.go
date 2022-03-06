@@ -6,17 +6,13 @@ import (
 )
 
 type License struct {
-	ID  *[32]byte
-	Key *[32]byte
-
-	Note string
-
-	Data        json.RawMessage
-	MaxSessions int
-	ValidUntil  *time.Time
-
-	Created time.Time
-	Updated time.Time
-
-	IssuerID int
+	ID          *[32]byte       `json:"id"`
+	Key         *[32]byte       `json:"key"`
+	Note        string          `json:"note"`
+	Data        json.RawMessage `json:"data"`
+	MaxSessions int             `json:"maxSessions"`
+	ValidUntil  *time.Time      `json:"validUntil"`
+	Created     time.Time       `json:"created"`
+	Updated     time.Time       `json:"updated"`
+	IssuerID    int             `json:"-"`
 }

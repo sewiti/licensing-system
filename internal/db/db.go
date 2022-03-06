@@ -1,9 +1,7 @@
 package db
 
 import (
-	"context"
 	"database/sql"
-	"errors"
 	"strings"
 
 	"github.com/Masterminds/squirrel"
@@ -42,24 +40,4 @@ func Open(dataSource string) (*Handler, error) {
 
 func (h *Handler) Close() error {
 	return h.db.Close()
-}
-
-func (h *Handler) scanRow(scanner squirrel.RowScanner, v ...interface{}) error {
-	err := scanner.Scan(v...)
-	if errors.Is(err, sql.ErrNoRows) {
-		return ErrNotFound
-	}
-	return err
-}
-
-func (h *Handler) execDelete(ctx context.Context, sq squirrel.DeleteBuilder, scope, action string) (int, error) {
-	res, err := sq.ExecContext(ctx)
-	if err != nil {
-		return 0, &Error{err: err, Scope: scope, Action: action}
-	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return 0, &Error{err: err, Scope: scope, Action: action}
-	}
-	return int(n), nil
 }

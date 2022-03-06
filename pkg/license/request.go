@@ -22,6 +22,7 @@ type createLicenseSessionReq struct {
 
 type createLicenseSessionReqData struct {
 	ClientSessionID *[32]byte `json:"csid"`
+	Identifier      string    `json:"id"`
 	MachineID       []byte    `json:"machineID"`
 	Timestamp       time.Time `json:"ts"`
 }
@@ -127,6 +128,7 @@ func sendJsonRequest(ctx context.Context, method, url string, reqData, resData i
 func (c *Client) sendCreateSession(ctx context.Context, clientID, clientKey *[32]byte, rand io.Reader) (*createLicenseSessionResData, error) {
 	reqData := createLicenseSessionReqData{
 		ClientSessionID: clientID,
+		Identifier:      c.identifier,
 		MachineID:       c.machineID,
 		Timestamp:       time.Now(),
 	}

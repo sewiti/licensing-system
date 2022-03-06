@@ -6,6 +6,8 @@ import (
 	"net/http"
 )
 
+const maxRequestSize = 256 * 1024 // 256 KiB
+
 type apiHandler func(r *http.Request) *apiResponse
 
 func withAPI(h apiHandler) http.Handler {
@@ -26,7 +28,6 @@ func withAPI(h apiHandler) http.Handler {
 }
 
 func jsonDecodeLim(r io.Reader, data interface{}) error {
-	const maxRequest = 256 * 1024 // 256 KiB
-	limited := io.LimitReader(r, maxRequest)
+	limited := io.LimitReader(r, maxRequestSize)
 	return json.NewDecoder(limited).Decode(data)
 }

@@ -2,16 +2,20 @@ package core
 
 import (
 	"context"
-	cryptorand "crypto/rand"
-	"errors"
 	"time"
 
-	"github.com/sewiti/licensing-system/internal/db"
+	cryptorand "crypto/rand"
+	mathrand "math/rand"
+
 	"github.com/sewiti/licensing-system/internal/model"
 	"golang.org/x/crypto/nacl/box"
 )
 
-func (c *Core) NewLicenseSession(ctx context.Context, l *model.License, clientSessionID *[32]byte, machineID []byte, clientTime time.Time) (ls *model.LicenseSession, refresh time.Time, err error) {
+// Returns ErrTimeOutOfSync
+// Returns ErrLicenseExpired
+// Returns ErrRateLimitReached
+// Returns SensitiveError
+func (c *Core) NewLicenseSession(ctx context.Context, l *model.License, clientSessionID *[32]byte, identifier string, machineID []byte, clientTime time.Time) (ls *model.LicenseSession, refresh time.Time, err error) {
 	now := time.Now()
 	if !c.timeInSync(now, clientTime) {
 		return nil, time.Time{}, ErrTimeOutOfSync
@@ -32,60 +36,42 @@ func (c *Core) NewLicenseSession(ctx context.Context, l *model.License, clientSe
 
 	refresh, expiry := c.calcLicenseSessionTimes(now, now)
 	s := &model.LicenseSession{
-		ClientID:  clientSessionID,
-		ServerID:  serverID,
-		ServerKey: serverKey,
-		MachineID: machineID,
-		Created:   now,
-		Expire:    expiry,
-		LicenseID: l.ID,
+		ClientID:   clientSessionID,
+		ServerID:   serverID,
+		ServerKey:  serverKey,
+		Identifier: identifier,
+		MachineID:  machineID,
+		Created:    now,
+		Expire:     expiry,
+		LicenseID:  l.ID,
 	}
 	// Delete old client's license sessions
 	_, err = c.db.DeleteLicenseSessionsByLicenseIDAndMachineID(ctx, l.ID, machineID)
 	if err != nil {
-		return nil, time.Time{}, &SensitiveError{
-			Message: "creating license session",
-			err:     err,
-		}
+		return nil, time.Time{}, handleErrDB(err, "deleting old license sessions")
 	}
 	err = c.db.InsertLicenseSession(ctx, s)
-	if err != nil {
-		return nil, time.Time{}, &SensitiveError{
-			Message: "creating license session",
-			err:     err,
-		}
-	}
-	return s, refresh, nil
+	return s, refresh, handleErrDB(err, "creating license session")
 }
 
+// Returns SensitiveError
+func (c *Core) GetAllLicenseSessionsByLicense(ctx context.Context, licenseID *[32]byte) ([]*model.LicenseSession, error) {
+	lss, err := c.db.SelectAllLicenseSessionsByLicenseID(ctx, licenseID)
+	return lss, handleErrDB(err, "getting all license sessions")
+}
+
+// Returns ErrNotFound
+// Returns SensitiveError
 func (c *Core) GetLicenseSession(ctx context.Context, clientSessionID *[32]byte) (*model.LicenseSession, error) {
 	ls, err := c.db.SelectLicenseSessionByID(ctx, clientSessionID)
-	if err != nil {
-		if errors.Is(err, db.ErrNotFound) {
-			return nil, ErrNotFound
-		}
-		return nil, &SensitiveError{
-			Message: "retrieving license session",
-			err:     err,
-		}
-	}
-	return ls, nil
+	return ls, handleErrDB(err, "getting license session")
 }
 
-func (c *Core) GetLicenseSessionsCount(ctx context.Context, licenseID *[32]byte) (int, error) {
-	count, err := c.db.SelectLicenseSessionsCountByLicenseID(ctx, licenseID)
-	if err != nil {
-		if errors.Is(err, db.ErrNotFound) {
-			return 0, ErrNotFound
-		}
-		return 0, &SensitiveError{
-			Message: "retrieving license sessions count",
-			err:     err,
-		}
-	}
-	return count, nil
-}
-
+// Returns ErrTimeOutOfSync
+// Returns ErrLicenseExpired
+// Returns ErrLicenseSessionExpired
+// Returns ErrNotFound
+// Returns SensitiveError
 func (c *Core) UpdateLicenseSession(ctx context.Context, ls *model.LicenseSession, l *model.License, clientTime time.Time) (refresh time.Time, err error) {
 	now := time.Now()
 	if !c.timeInSync(now, clientTime) {
@@ -103,23 +89,42 @@ func (c *Core) UpdateLicenseSession(ctx context.Context, ls *model.LicenseSessio
 	ls.Expire = expiry
 
 	err = c.db.UpdateLicenseSession(ctx, ls)
-	if err != nil {
-		return time.Time{}, &SensitiveError{
-			Message: "updating license session",
-			err:     err,
-		}
-	}
-	return refresh, nil
+	return refresh, handleErrDB(err, "updating license session")
 }
 
+// Returns SensitiveError
 func (c *Core) DeleteLicenseSession(ctx context.Context, clientSessionID *[32]byte) error {
 	// We don't care about client time when deleting session.
 	_, err := c.db.DeleteLicenseSessionBySessionID(ctx, clientSessionID)
-	if err != nil {
-		return &SensitiveError{
-			Message: "deleting license session",
-			err:     err,
-		}
+	return handleErrDB(err, "deleting license session")
+}
+
+// timeInSync reports whether client time is in sync with server time, i. e,
+// haven't drifted from server time too far (defined by c.maxTimeDrift).
+func (c *Core) timeInSync(server, client time.Time) bool {
+	lowerBound := server.Add(-c.maxTimeDrift)
+	upperBound := server.Add(c.maxTimeDrift)
+	return client.After(lowerBound) && client.Before(upperBound)
+}
+
+// calcLicenseSessionTimes calculates license session refresh and expire times.
+//
+//  Refresh time = 2 * uptime (+-jitter%, clamped to min-max)
+//  Expire time  = 2 * refresh time
+func (c *Core) calcLicenseSessionTimes(start, now time.Time) (refresh, expiry time.Time) {
+	// Random [-jitter; +jitter)
+	jitter := (2.0 * c.refresh.Jitter * mathrand.Float64()) - c.refresh.Jitter
+
+	uptime := now.Sub(start)
+	delay := time.Duration(
+		(2.0 + jitter) * float64(uptime), // 2.0 * uptime
+	)
+
+	// Clamp to [min; max]
+	if delay < c.refresh.Min {
+		delay = c.refresh.Min
+	} else if delay > c.refresh.Max {
+		delay = c.refresh.Max
 	}
-	return nil
+	return now.Add(delay), now.Add(2 * delay)
 }

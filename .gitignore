@@ -14,8 +14,9 @@
 !README.md
 !LICENSE
 
+!makefile
 !.env.example
-!license-server.service
+!licensing-server.service
 
 # !Makefile
 

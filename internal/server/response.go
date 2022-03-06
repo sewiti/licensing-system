@@ -14,6 +14,10 @@ type apiResponse struct {
 	body       []byte
 }
 
+type messageResponse struct {
+	Message string `json:"message"`
+}
+
 func responseJson(statusCode int, data interface{}) *apiResponse {
 	bs, err := json.Marshal(data)
 	if err != nil {
@@ -29,22 +33,16 @@ func responseJson(statusCode int, data interface{}) *apiResponse {
 
 func responseJsonMsg(statusCode int, a ...interface{}) *apiResponse {
 	return responseJson(statusCode,
-		struct {
-			Msg string `json:"message"`
-		}{
-			Msg: fmt.Sprint(a...),
-		},
-	)
+		messageResponse{
+			Message: fmt.Sprint(a...),
+		})
 }
 
 func responseJsonMsgf(statusCode int, format string, a ...interface{}) *apiResponse {
 	return responseJson(statusCode,
-		struct {
-			Msg string `json:"message"`
-		}{
-			Msg: fmt.Sprintf(format, a...),
-		},
-	)
+		messageResponse{
+			Message: fmt.Sprintf(format, a...),
+		})
 }
 
 func responseNoContent() *apiResponse {
@@ -54,6 +52,9 @@ func responseNoContent() *apiResponse {
 }
 
 func responseBadRequest(a ...interface{}) *apiResponse {
+	if len(a) == 0 {
+		return responseJsonMsg(http.StatusBadRequest, "400 Bad Request")
+	}
 	return responseJsonMsg(http.StatusBadRequest, a...)
 }
 
@@ -61,20 +62,35 @@ func responseBadRequestf(format string, a ...interface{}) *apiResponse {
 	return responseJsonMsgf(http.StatusBadRequest, format, a...)
 }
 
+func responseUnauthorized() *apiResponse {
+	return responseJsonMsg(http.StatusUnauthorized, "401 Unauthorized")
+}
+
 func responseForbidden(a ...interface{}) *apiResponse {
+	if len(a) == 0 {
+		return responseJsonMsg(http.StatusForbidden, "403 Forbidden")
+	}
 	return responseJsonMsg(http.StatusForbidden, a...)
 }
 
+// func responseForbiddenf(format string, a ...interface{}) *apiResponse {
+// 	return responseJsonMsgf(http.StatusForbidden, format, a...)
+// }
+
 func responseNotFound() *apiResponse {
-	return &apiResponse{
-		statusCode: http.StatusNotFound,
-		body:       []byte("404 Not Found"),
-	}
+	return responseJsonMsg(http.StatusNotFound, "404 Not Found")
 }
 
 func responseConflict(a ...interface{}) *apiResponse {
+	if len(a) == 0 {
+		return responseJsonMsg(http.StatusConflict, "409 Conflict")
+	}
 	return responseJsonMsg(http.StatusConflict, a...)
 }
+
+// func responseConflictf(format string, a ...interface{}) *apiResponse {
+// 	return responseJsonMsgf(http.StatusConflict, format, a...)
+// }
 
 func responseInternalServerError() *apiResponse {
 	return &apiResponse{

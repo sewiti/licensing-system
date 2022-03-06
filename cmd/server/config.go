@@ -2,8 +2,9 @@ package main
 
 import "time"
 
+// config defines licensing server config.
 type config struct {
-	DbDataSource string
+	DbDSN string
 
 	HTTP struct {
 		Listen          string        `envconfig:"optional"`
@@ -12,8 +13,9 @@ type config struct {
 		ShutdownTimeout time.Duration `envconfig:"default=30s"`
 
 		CORS struct {
-			Enabled        bool     `envconfig:"default=false"`
-			AllowedOrigins []string `envconfig:"optional"`
+			ResourceApiEnabled  bool     `envconfig:"default=false"`
+			LicensingApiEnabled bool     `envconfig:"default=false"`
+			AllowedOrigins      []string `envconfig:"optional"`
 		}
 
 		TLS struct {
@@ -42,4 +44,7 @@ type config struct {
 			CacheCleanupInterval time.Duration `envconfig:"default=1h"`
 		}
 	}
+
+	InternalSocket   string  `envconfig:"default=/run/licensing-server.sock"`
+	MinPasswdEntropy float64 `envconfig:"default=30"`
 }

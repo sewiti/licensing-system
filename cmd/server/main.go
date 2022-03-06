@@ -1,29 +1,39 @@
 package main
 
 import (
-	cryptorand "crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
 
-	"golang.org/x/crypto/nacl/box"
+	"github.com/apex/log"
 )
 
 func main() {
 	if len(os.Args) <= 1 {
-		runServer()
-		return
+		printUsage(os.Stderr)
+		os.Exit(1)
 	}
+
 	switch os.Args[1] {
-	case "generate-keys":
-		err := generateKeys()
+	case "run":
+		err := runServer() // manages errors on it's own
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "generate-keys: %v\n", err)
-			os.Exit(1)
+			log.WithError(err).Fatal("run server")
 		}
 
-	case "-h", "--help":
+	case "generate-keys":
+		err := generateKeys(os.Args[2:])
+		if err != nil {
+			log.WithError(err).Fatal("generate keys")
+		}
+
+	case "issuer":
+		err := manageLicenseIssuer(os.Args[2:])
+		if err != nil {
+			log.WithError(err).Fatal("manage license issuer")
+		}
+
+	case "-h", "-help", "--help":
 		printUsage(os.Stdout)
 
 	default:
@@ -33,20 +43,11 @@ func main() {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintf(w, "usage: %s [generate-keys]\n", os.Args[0])
-}
-
-func generateKeys() error {
-	pub, priv, err := box.GenerateKey(cryptorand.Reader)
-	if err != nil {
-		return err
-	}
-	fmt.Println("id (public):")
-	fmt.Printf("  hex:    % #x\n", pub[:])
-	fmt.Printf("  base64: %s\n", base64.StdEncoding.EncodeToString(pub[:]))
-	fmt.Println()
-	fmt.Println("key (private):")
-	fmt.Printf("  hex:    % #x\n", priv[:])
-	fmt.Printf("  base64: %s\n", base64.StdEncoding.EncodeToString(priv[:]))
-	return nil
+	fmt.Fprintln(w, "Usage:")
+	fmt.Fprintf(w, "  %s <command> [arguments]\n", os.Args[0])
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Commands:")
+	fmt.Fprintln(w, "  run                                                  run licensing server")
+	fmt.Fprintln(w, "  issuer <username> enable|disable|chpasswd [-socket]  manage license issuers")
+	fmt.Fprintln(w, "  generate-keys [-base64|-hex]                         generate random keys")
 }
