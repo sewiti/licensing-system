@@ -14,6 +14,21 @@ type apiResponse struct {
 	body       []byte
 }
 
+func (res *apiResponse) Write(w http.ResponseWriter) error {
+	if res == nil || res.statusCode == http.StatusNoContent {
+		w.WriteHeader(http.StatusNoContent)
+		return nil
+	}
+	if res.json {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	} else {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	}
+	w.WriteHeader(res.statusCode)
+	_, err := w.Write(res.body)
+	return err
+}
+
 type messageResponse struct {
 	Message string `json:"message"`
 }

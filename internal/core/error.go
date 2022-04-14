@@ -7,6 +7,9 @@ import (
 )
 
 var (
+	// License issuer errors
+	ErrLicenseIssuerDisabled = errors.New("license issuer is disabled")
+
 	// License errors
 	ErrLicenseExpired        = errors.New("license has expired")
 	ErrLicenseSessionExpired = errors.New("license session has expired")
@@ -54,10 +57,13 @@ func (e *SensitiveError) Unwrap() error {
 //  - If error is db.ErrDuplicate, core.ErrDuplicate is returned.
 //  - Other errors are wrapped under core.SensitiveError with a message given.
 func handleErrDB(err error, message string) error {
-	if err == nil {
-		return nil
-	}
+	var sErr *SensitiveError
 	switch {
+	case err == nil:
+		return nil
+	case errors.As(err, &sErr):
+		sErr.Message = message
+		return sErr
 	case errors.Is(err, db.ErrNotFound):
 		return ErrNotFound
 	case errors.Is(err, db.ErrDuplicate):

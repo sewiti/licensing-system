@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"bytes"
 	"errors"
 	"net/http"
 	"strconv"
@@ -20,26 +20,27 @@ import (
 
 func licCreateLicenseSession(c *core.Core) apiHandler {
 	type createLicenseSessionReq struct {
-		LicenseID *[32]byte `json:"lid"`
-		Data      []byte    `json:"data"`
-		N         *[24]byte `json:"n"`
+		LicenseID []byte `json:"lid"`
+		Data      []byte `json:"data"`
+		N         []byte `json:"n"`
 	}
 	type createLicenseSessionReqData struct {
-		ClientSessionID *[32]byte `json:"csid"`
+		ClientSessionID []byte    `json:"csid"`
 		Identifier      string    `json:"id"`
 		MachineID       []byte    `json:"machineID"`
+		AppVersion      string    `json:"appVersion"`
 		Timestamp       time.Time `json:"ts"`
 	}
 	type createLicenseSessionRes struct {
-		Data []byte    `json:"data"`
-		N    *[24]byte `json:"n"`
+		Data []byte `json:"data"`
+		N    []byte `json:"n"`
 	}
 	type createLicenseSessionResData struct {
-		ServerSessionID *[32]byte       `json:"ssid"`
-		Timestamp       time.Time       `json:"ts"`
-		RefreshAfter    time.Time       `json:"refresh"`
-		ExpireAfter     time.Time       `json:"expire"`
-		Data            json.RawMessage `json:"data,omitempty"`
+		ServerSessionID []byte    `json:"ssid"`
+		Timestamp       time.Time `json:"ts"`
+		RefreshAfter    time.Time `json:"refresh"`
+		ExpireAfter     time.Time `json:"expire"`
+		Data            []byte    `json:"data,omitempty"`
 	}
 
 	return func(r *http.Request) *apiResponse {
@@ -73,6 +74,7 @@ func licCreateLicenseSession(c *core.Core) apiHandler {
 			data.ClientSessionID,
 			data.Identifier,
 			data.MachineID,
+			data.AppVersion,
 			data.Timestamp,
 		)
 		if err != nil {
@@ -115,26 +117,26 @@ func licCreateLicenseSession(c *core.Core) apiHandler {
 
 func licUpdateLicenseSession(c *core.Core) apiHandler {
 	type updateLicenseSessionReq struct {
-		Data []byte    `json:"data"`
-		N    *[24]byte `json:"n"`
+		Data []byte `json:"data"`
+		N    []byte `json:"n"`
 	}
 	type updateLicenseSessionReqData struct {
 		Timestamp time.Time `json:"ts"`
 	}
 	type updateLicenseSessionRes struct {
-		Data []byte    `json:"data"`
-		N    *[24]byte `json:"n"`
+		Data []byte `json:"data"`
+		N    []byte `json:"n"`
 	}
 	type updateLicenseSessionResData struct {
-		Timestamp    time.Time       `json:"ts"`
-		RefreshAfter time.Time       `json:"refresh"`
-		ExpireAfter  time.Time       `json:"expire"`
-		Data         json.RawMessage `json:"data,omitempty"`
+		Timestamp    time.Time `json:"ts"`
+		RefreshAfter time.Time `json:"refresh"`
+		ExpireAfter  time.Time `json:"expire"`
+		Data         []byte    `json:"data,omitempty"`
 	}
 
 	return func(r *http.Request) *apiResponse {
 		const scope = "update license session"
-		clientSessionID, err := pathVarID(mux.Vars(r)["CLIENT_SESSION_ID"])
+		clientSessionID, err := pathVarKey(mux.Vars(r)["CLIENT_SESSION_ID"])
 		if err != nil {
 			return responseBadRequestf("client session id: %v", err)
 		}
@@ -144,7 +146,7 @@ func licUpdateLicenseSession(c *core.Core) apiHandler {
 		if err != nil {
 			return responseBadRequest(err)
 		}
-		ls, err := c.GetLicenseSession(r.Context(), (*[32]byte)(clientSessionID))
+		ls, err := c.GetLicenseSession(r.Context(), clientSessionID)
 		if err != nil {
 			switch {
 			case errors.Is(err, core.ErrNotFound):
@@ -212,8 +214,8 @@ func licUpdateLicenseSession(c *core.Core) apiHandler {
 
 func licDeleteLicenseSession(c *core.Core) apiHandler {
 	type deleteLicenseSessionReq struct {
-		Data []byte    `json:"data"`
-		N    *[24]byte `json:"n"`
+		Data []byte `json:"data"`
+		N    []byte `json:"n"`
 	}
 	type deleteLicenseSessionReqData struct {
 		Timestamp time.Time `json:"ts"`
@@ -221,7 +223,7 @@ func licDeleteLicenseSession(c *core.Core) apiHandler {
 
 	return func(r *http.Request) *apiResponse {
 		const scope = "delete license session"
-		clientSessionID, err := pathVarID(mux.Vars(r)["CLIENT_SESSION_ID"])
+		clientSessionID, err := pathVarKey(mux.Vars(r)["CLIENT_SESSION_ID"])
 		if err != nil {
 			return responseBadRequestf("client session id: %v", err)
 		}
@@ -249,6 +251,10 @@ func licDeleteLicenseSession(c *core.Core) apiHandler {
 
 		err = c.DeleteLicenseSession(r.Context(), ls.ClientID)
 		if err != nil {
+			switch {
+			case errors.Is(err, core.ErrNotFound):
+				return responseNotFound()
+			}
 			logError(err, scope)
 			return responseInternalServerError()
 		}
@@ -261,20 +267,29 @@ func licDeleteLicenseSession(c *core.Core) apiHandler {
 func getAllLicenseSessions(c *core.Core) apiAuthHandler {
 	return func(r *http.Request, login *model.LicenseIssuer) *apiResponse {
 		const scope = "get all license sessions"
-		vars := mux.Vars(r)
-		_, err := strconv.Atoi(vars["LICENSE_ISSUER_ID"])
-		if err != nil {
-			return responseBadRequestf("license issuer id: %v", err)
-		}
-		licenseID, err := pathVarID(vars["LICENSE_ID"])
+		licenseID, err := pathVarKey(mux.Vars(r)["LICENSE_ID"])
 		if err != nil {
 			return responseBadRequestf("license id: %v", err)
+		}
+
+		_, err = c.GetLicense(r.Context(), licenseID)
+		if err != nil {
+			switch {
+			case errors.Is(err, core.ErrNotFound):
+				return responseNotFound()
+			default:
+				logError(err, scope)
+				return responseInternalServerError()
+			}
 		}
 
 		lss, err := c.GetAllLicenseSessionsByLicense(r.Context(), licenseID)
 		if err != nil {
 			logError(err, scope)
 			return responseInternalServerError()
+		}
+		if lss == nil {
+			lss = make([]*model.LicenseSession, 0) // Force empty array json
 		}
 		return responseJson(http.StatusOK, lss)
 	}
@@ -284,18 +299,15 @@ func getLicenseSession(c *core.Core) apiAuthHandler {
 	return func(r *http.Request, login *model.LicenseIssuer) *apiResponse {
 		const scope = "get license session"
 		vars := mux.Vars(r)
-		_, err := strconv.Atoi(vars["LICENSE_ISSUER_ID"])
-		if err != nil {
-			return responseBadRequestf("license issuer id: %v", err)
-		}
-		_, err = pathVarID(vars["LICENSE_ID"])
+		licenseID, err := pathVarKey(vars["LICENSE_ID"])
 		if err != nil {
 			return responseBadRequestf("license id: %v", err)
 		}
-		clientSessionID, err := pathVarID(vars["CLIENT_SESSION_ID"])
+		clientSessionID, err := pathVarKey(vars["CLIENT_SESSION_ID"])
 		if err != nil {
 			return responseBadRequestf("client session id: %v", err)
 		}
+		// TODO: License is useless
 
 		ls, err := c.GetLicenseSession(r.Context(), clientSessionID)
 		if err != nil {
@@ -307,6 +319,9 @@ func getLicenseSession(c *core.Core) apiAuthHandler {
 				return responseInternalServerError()
 			}
 		}
+		if !bytes.Equal(licenseID, ls.LicenseID) {
+			return responseNotFound()
+		}
 		return responseJson(http.StatusOK, ls)
 	}
 }
@@ -315,21 +330,39 @@ func deleteLicenseSession(c *core.Core) apiAuthHandler {
 	return func(r *http.Request, login *model.LicenseIssuer) *apiResponse {
 		const scope = "delete license session"
 		vars := mux.Vars(r)
-		_, err := strconv.Atoi(vars["LICENSE_ISSUER_ID"])
+		licenseIssuerID, err := strconv.Atoi(vars["LICENSE_ISSUER_ID"])
 		if err != nil {
 			return responseBadRequestf("license issuer id: %v", err)
 		}
-		_, err = pathVarID(vars["LICENSE_ID"])
+		licenseID, err := pathVarKey(vars["LICENSE_ID"])
 		if err != nil {
 			return responseBadRequestf("license id: %v", err)
 		}
-		clientSessionID, err := pathVarID(vars["CLIENT_SESSION_ID"])
+		clientSessionID, err := pathVarKey(vars["CLIENT_SESSION_ID"])
 		if err != nil {
 			return responseBadRequestf("client session id: %v", err)
 		}
 
+		l, err := c.GetLicense(r.Context(), licenseID)
+		if err != nil {
+			switch {
+			case errors.Is(err, core.ErrNotFound):
+				return responseNotFound()
+			default:
+				logError(err, scope)
+				return responseInternalServerError()
+			}
+		}
+		if l.IssuerID != licenseIssuerID {
+			return responseNotFound()
+		}
+
 		err = c.DeleteLicenseSession(r.Context(), clientSessionID)
 		if err != nil {
+			switch {
+			case errors.Is(err, core.ErrNotFound):
+				return responseNotFound()
+			}
 			logError(err, scope)
 			return responseInternalServerError()
 		}

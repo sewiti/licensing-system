@@ -18,14 +18,15 @@ func (h *Handler) InsertLicenseSession(ctx context.Context, ls *model.LicenseSes
 	)
 	sq := h.sq.Insert(scope).
 		SetMap(map[string]interface{}{
-			"client_session_id":  ls.ClientID[:],
-			"server_session_id":  ls.ServerID[:],
-			"server_session_key": ls.ServerKey[:],
+			"client_session_id":  ls.ClientID,
+			"server_session_id":  ls.ServerID,
+			"server_session_key": ls.ServerKey,
 			"identifier":         ls.Identifier,
 			"machine_id":         ls.MachineID,
+			"app_version":        ls.AppVersion,
 			"created":            ls.Created,
 			"expire":             ls.Expire,
-			"license_id":         ls.LicenseID[:],
+			"license_id":         ls.LicenseID,
 		})
 	_, err := sq.ExecContext(ctx)
 	if err != nil {
@@ -34,20 +35,20 @@ func (h *Handler) InsertLicenseSession(ctx context.Context, ls *model.LicenseSes
 	return nil
 }
 
-func (h *Handler) SelectAllLicenseSessionsByLicenseID(ctx context.Context, licenseID *[32]byte) ([]*model.LicenseSession, error) {
+func (h *Handler) SelectAllLicenseSessionsByLicenseID(ctx context.Context, licenseID []byte) ([]*model.LicenseSession, error) {
 	return h.selectLicenseSessions(ctx, "SelectAllByLicenseID",
 		func(sq squirrel.SelectBuilder) squirrel.SelectBuilder {
 			return sq.Where(squirrel.Eq{
-				"license_id": licenseID[:],
-			})
+				"license_id": licenseID,
+			}).OrderBy("created")
 		})
 }
 
-func (h *Handler) SelectLicenseSessionByID(ctx context.Context, clientSessionID *[32]byte) (*model.LicenseSession, error) {
+func (h *Handler) SelectLicenseSessionByID(ctx context.Context, clientSessionID []byte) (*model.LicenseSession, error) {
 	return h.selectLicenseSession(ctx, "SelectByID",
 		func(sq squirrel.SelectBuilder) squirrel.SelectBuilder {
 			return sq.Where(squirrel.Eq{
-				"client_session_id": clientSessionID[:],
+				"client_session_id": clientSessionID,
 			})
 		})
 }
@@ -72,6 +73,7 @@ func (h *Handler) selectLicenseSessions(ctx context.Context, action string, d se
 		"server_session_key",
 		"identifier",
 		"machine_id",
+		"app_version",
 		"created",
 		"expire",
 		"license_id",
@@ -85,28 +87,21 @@ func (h *Handler) selectLicenseSessions(ctx context.Context, action string, d se
 
 	var lss []*model.LicenseSession
 	for rows.Next() {
-		var clientID []byte
-		var serverID []byte
-		var serverKey []byte
-		var licenseID []byte
 		ls := &model.LicenseSession{}
 		err = rows.Scan(
-			&clientID,
-			&serverID,
-			&serverKey,
+			&ls.ClientID,
+			&ls.ServerID,
+			&ls.ServerKey,
 			&ls.Identifier,
 			&ls.MachineID,
+			&ls.AppVersion,
 			&ls.Created,
 			&ls.Expire,
-			&licenseID,
+			&ls.LicenseID,
 		)
 		if err != nil {
 			return nil, &Error{err: err, Scope: scope, Action: action}
 		}
-		ls.ClientID = (*[32]byte)(clientID)
-		ls.ServerID = (*[32]byte)(serverID)
-		ls.ServerKey = (*[32]byte)(serverKey)
-		ls.LicenseID = (*[32]byte)(licenseID)
 		lss = append(lss, ls)
 	}
 
@@ -124,16 +119,17 @@ func (h *Handler) UpdateLicenseSession(ctx context.Context, ls *model.LicenseSes
 	)
 	sq := h.sq.Update(scope).
 		SetMap(map[string]interface{}{
-			"server_session_id":  ls.ServerID[:],
-			"server_session_key": ls.ServerKey[:],
+			"server_session_id":  ls.ServerID,
+			"server_session_key": ls.ServerKey,
 			"identifier":         ls.Identifier,
 			"machine_id":         ls.MachineID,
+			"app_version":        ls.AppVersion,
 			"created":            ls.Created,
 			"expire":             ls.Expire,
-			"license_id":         ls.LicenseID[:],
+			"license_id":         ls.LicenseID,
 		}).
 		Where(squirrel.Eq{
-			"client_session_id": ls.ClientID[:],
+			"client_session_id": ls.ClientID,
 		})
 
 	_, err := sq.ExecContext(ctx)
@@ -143,19 +139,19 @@ func (h *Handler) UpdateLicenseSession(ctx context.Context, ls *model.LicenseSes
 	return nil
 }
 
-func (h *Handler) DeleteLicenseSessionBySessionID(ctx context.Context, clientSessionID *[32]byte) (int, error) {
+func (h *Handler) DeleteLicenseSessionBySessionID(ctx context.Context, clientSessionID []byte) (int, error) {
 	sq := h.sq.Delete(licenseSessionTable).
 		Where(squirrel.Eq{
-			"server_session_id": clientSessionID[:],
+			"client_session_id": clientSessionID,
 		})
 	return h.execDelete(ctx, sq, licenseSessionTable, "DeleteBySessionID")
 }
 
-func (h *Handler) DeleteLicenseSessionsByLicenseIDAndMachineID(ctx context.Context, licenseID *[32]byte, machineID []byte) (int, error) {
+func (h *Handler) DeleteLicenseSessionsByLicenseIDAndMachineID(ctx context.Context, licenseID []byte, machineID []byte) (int, error) {
 	sq := h.sq.Delete(licenseSessionTable).
 		Where(squirrel.Eq{
 			"machine_id": machineID,
-			"license_id": licenseID[:],
+			"license_id": licenseID,
 		})
 	return h.execDelete(ctx, sq, licenseSessionTable, "DeleteByLicenseIDAndMachineID")
 }

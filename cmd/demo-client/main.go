@@ -54,11 +54,6 @@ func main() {
 		exitf(1, "machine-id: %v\n", err)
 	}
 
-	cl, err := license.NewClient(url, serverID, machineID, licenseKey)
-	if err != nil {
-		exitf(1, "%v\n", err)
-	}
-
 	wg := sync.WaitGroup{}
 	ctx := context.Background()
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
@@ -66,6 +61,11 @@ func main() {
 
 	wg.Add(n)
 	for i := 0; i < n; i++ {
+		cl, err := license.NewClient(url, serverID, machineID, licenseKey)
+		if err != nil {
+			exitf(1, "%v\n", err)
+		}
+
 		go func(i int) {
 			defer wg.Done()
 			cl.Run(ctx, maxRefresh, func(msg string, err error) {

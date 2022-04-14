@@ -3,8 +3,6 @@ package server
 import (
 	"encoding/json"
 	"errors"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 
@@ -27,7 +25,7 @@ func createLicenseIssuer(c *core.Core) apiAuthHandler {
 			return responseBadRequest(err)
 		}
 
-		li, err := c.NewLicenseIssuer(r.Context(), req.Username, req.Password, req.MaxLicenses)
+		li, err := c.NewLicenseIssuer(r.Context(), req.Username, req.Password, req.Email, req.PhoneNumber, req.MaxLicenses)
 		if err != nil {
 			switch {
 			case errors.Is(err, core.ErrInvalidInput):
@@ -52,6 +50,9 @@ func getAllLicenseIssuers(c *core.Core) apiAuthHandler {
 		if err != nil {
 			logError(err, scope)
 			return responseInternalServerError()
+		}
+		if lii == nil {
+			lii = make([]*model.LicenseIssuer, 0) // Force empty array json
 		}
 		return responseJson(http.StatusOK, lii)
 	}
@@ -87,35 +88,35 @@ func updateLicenseIssuer(c *core.Core) apiAuthHandler {
 			return responseBadRequestf("license issuer id: %v", err)
 		}
 
-		data, err := ioutil.ReadAll(io.LimitReader(r.Body, maxRequestSize))
+		data, err := readAllLim(r.Body)
 		if err != nil {
 			return responseBadRequest(err)
 		}
-		{
-			// Validate schema
-			var li model.LicenseIssuer
-			err = json.Unmarshal(data, &li)
-			if err != nil {
-				return responseBadRequest(err)
-			}
+		li := &model.LicenseIssuer{
+			ID: licenseIssuerID,
+		}
+		err = json.Unmarshal(data, li)
+		if err != nil {
+			return responseBadRequest(err)
 		}
 
-		update := make(map[string]interface{})
-		err = json.Unmarshal(data, &update)
+		changes, err := core.UnmarshalChanges(data)
 		if err != nil {
 			return responseBadRequest(err) // should never happen
 		}
 		mask, _ := c.AuthorizeLicenseIssuerUpdate(login)
-		field, ok := core.UpdateInMask(update, mask)
+		field, ok := core.ChangesInMask(changes, mask)
 		if !ok {
-			return responseBadRequestf("unable to change field: %s", field)
+			return responseBadRequestf("unauthorized to change field: %s", field)
 		}
 
-		err = c.UpdateLicenseIssuer(r.Context(), licenseIssuerID, update)
+		err = c.UpdateLicenseIssuer(r.Context(), li, changes)
 		if err != nil {
 			switch {
 			case errors.Is(err, core.ErrSuperadminImmutable):
 				return responseForbidden(err)
+			case errors.Is(err, core.ErrDuplicate):
+				return responseConflict(err)
 			case errors.Is(err, core.ErrInvalidInput):
 				return responseBadRequest(err)
 			case errors.Is(err, core.ErrNotFound):
@@ -126,7 +127,7 @@ func updateLicenseIssuer(c *core.Core) apiAuthHandler {
 			}
 		}
 
-		li, err := c.GetLicenseIssuer(r.Context(), licenseIssuerID)
+		li, err = c.GetLicenseIssuer(r.Context(), licenseIssuerID)
 		if err != nil {
 			switch {
 			case errors.Is(err, core.ErrNotFound):
@@ -157,6 +158,8 @@ func deleteLicenseIssuer(c *core.Core) apiAuthHandler {
 			switch {
 			case errors.Is(err, core.ErrSuperadminImmutable):
 				return responseForbidden(err)
+			case errors.Is(err, core.ErrNotFound):
+				return responseNotFound()
 			default:
 				logError(err, scope)
 				return responseInternalServerError()

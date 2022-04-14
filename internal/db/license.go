@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/Masterminds/squirrel"
+	"github.com/lib/pq"
 	"github.com/sewiti/licensing-system/internal/model"
 )
 
@@ -13,15 +14,19 @@ func (h *Handler) InsertLicense(ctx context.Context, l *model.License) error {
 	const action = "Insert"
 	sq := h.sq.Insert(licenseTable).
 		SetMap(map[string]interface{}{
-			"id":           l.ID[:],
-			"key":          l.Key[:],
-			"note":         l.Note,
-			"data":         l.Data,
-			"max_sessions": l.MaxSessions,
-			"valid_until":  l.ValidUntil,
-			"created":      l.Created,
-			"updated":      l.Updated,
-			"issuer_id":    l.IssuerID,
+			"id":             l.ID,
+			"key":            l.Key,
+			"name":           l.Name,
+			"tags":           pq.Array(l.Tags),
+			"end_user_email": l.EndUserEmail,
+			"note":           l.Note,
+			"data":           l.Data,
+			"max_sessions":   l.MaxSessions,
+			"valid_until":    l.ValidUntil,
+			"created":        l.Created,
+			"updated":        l.Updated,
+			"last_used":      l.LastUsed,
+			"issuer_id":      l.IssuerID,
 		})
 
 	_, err := sq.ExecContext(ctx)
@@ -36,15 +41,15 @@ func (h *Handler) SelectAllLicensesByIssuerID(ctx context.Context, licenseIssuer
 		func(sq squirrel.SelectBuilder) squirrel.SelectBuilder {
 			return sq.Where(squirrel.Eq{
 				"issuer_id": licenseIssuerID,
-			})
+			}).OrderBy("last_used", "updated DESC")
 		})
 }
 
-func (h *Handler) SelectLicenseByID(ctx context.Context, licenseID *[32]byte) (*model.License, error) {
+func (h *Handler) SelectLicenseByID(ctx context.Context, licenseID []byte) (*model.License, error) {
 	return h.selectLicense(ctx, "SelectByID",
 		func(sq squirrel.SelectBuilder) squirrel.SelectBuilder {
 			return sq.Where(squirrel.Eq{
-				"id": licenseID[:],
+				"id": licenseID,
 			})
 		})
 }
@@ -66,12 +71,16 @@ func (h *Handler) selectLicenses(ctx context.Context, action string, d selectDec
 	sq := h.sq.Select(
 		"id",
 		"key",
+		"name",
+		"tags",
+		"end_user_email",
 		"note",
 		"data",
 		"max_sessions",
 		"valid_until",
 		"created",
 		"updated",
+		"last_used",
 		"issuer_id",
 	).From(scope)
 
@@ -83,25 +92,25 @@ func (h *Handler) selectLicenses(ctx context.Context, action string, d selectDec
 
 	var ll []*model.License
 	for rows.Next() {
-		var id []byte
-		var key []byte
 		l := &model.License{}
 		err = rows.Scan(
-			&id,
-			&key,
+			&l.ID,
+			&l.Key,
+			&l.Name,
+			pq.Array(&l.Tags),
+			&l.EndUserEmail,
 			&l.Note,
 			&l.Data,
 			&l.MaxSessions,
 			&l.ValidUntil,
 			&l.Created,
 			&l.Updated,
+			&l.LastUsed,
 			&l.IssuerID,
 		)
 		if err != nil {
 			return nil, &Error{err: err, Scope: scope, Action: action}
 		}
-		l.ID = (*[32]byte)(id)
-		l.Key = (*[32]byte)(key)
 		ll = append(ll, l)
 	}
 
@@ -132,7 +141,7 @@ func (h *Handler) SelectLicensesCountByIssuerID(ctx context.Context, licenseIssu
 	return count, nil
 }
 
-func (h *Handler) UpdateLicense(ctx context.Context, licenseID *[32]byte, update map[string]interface{}) error {
+func (h *Handler) UpdateLicense(ctx context.Context, licenseID []byte, licenseIssuerID int, update map[string]interface{}) error {
 	const (
 		action = "Update"
 		scope  = licenseTable
@@ -140,7 +149,8 @@ func (h *Handler) UpdateLicense(ctx context.Context, licenseID *[32]byte, update
 	sq := h.sq.Update(scope).
 		SetMap(update).
 		Where(squirrel.Eq{
-			"id": licenseID[:],
+			"id":        licenseID,
+			"issuer_id": licenseIssuerID,
 		})
 
 	_, err := sq.ExecContext(ctx)
@@ -150,11 +160,12 @@ func (h *Handler) UpdateLicense(ctx context.Context, licenseID *[32]byte, update
 	return nil
 }
 
-func (h *Handler) DeleteLicenseByID(ctx context.Context, licenseID *[32]byte) (int, error) {
+func (h *Handler) DeleteLicenseByID(ctx context.Context, licenseID []byte, licenseIssuerID int) (int, error) {
 	const scope = licenseTable
 	sq := h.sq.Delete(scope).
 		Where(squirrel.Eq{
-			"id": licenseID[:],
+			"id":        licenseID,
+			"issuer_id": licenseIssuerID,
 		})
 	return h.execDelete(ctx, sq, scope, "DeleteByID")
 }

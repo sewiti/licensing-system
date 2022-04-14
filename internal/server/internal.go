@@ -48,9 +48,10 @@ func internalUpdateLicenseIssuerActive(c *core.Core) apiHandler {
 				return responseInternalServerError()
 			}
 		}
+		li.Active = req.Active
 
-		err = c.UpdateLicenseIssuerBypass(r.Context(), li.ID, map[string]interface{}{
-			"active": req.Active,
+		err = c.UpdateLicenseIssuerBypass(r.Context(), li, map[string]struct{}{
+			"active": {},
 		})
 		if err != nil {
 			switch {

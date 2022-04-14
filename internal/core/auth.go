@@ -33,6 +33,8 @@ func (c *Core) AuthenticateBasic(ctx context.Context, username, passwd string) (
 
 // Returns ErrNotFound
 // Returns ErrUserInactive
+// Returns ErrUserInactive
+// Returns ErrInvalidToken
 // Returns SensitiveError
 func (c *Core) AuthenticateToken(ctx context.Context, token string) (*model.LicenseIssuer, error) {
 	if ctx.Err() != nil {

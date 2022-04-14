@@ -10,17 +10,17 @@ type Limit int
 
 const Unlimited Limit = 0 // Less than or equals means unlimited.
 
-// Allows returns whether i exceeds the Limit.
-func (l Limit) Allows(i int) bool {
+// Allows reports whether v is allowed, i.e., doesn't exceed the limit.
+func (l Limit) Allows(v int) bool {
 	if l <= Unlimited {
 		return true
 	}
-	return i <= int(l)
+	return v <= int(l)
 }
 
 func (l Limit) MarshalJSON() ([]byte, error) {
 	if l <= Unlimited {
-		return []byte("null"), nil
+		return []byte("-1"), nil
 	}
 	return []byte(strconv.Itoa(int(l))), nil
 }

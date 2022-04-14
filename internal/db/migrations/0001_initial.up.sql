@@ -29,7 +29,7 @@ CREATE TABLE license
     CONSTRAINT license_issuer_id_fkey FOREIGN KEY (issuer_id)
         REFERENCES license_issuer (id) MATCH SIMPLE
         ON UPDATE RESTRICT
-        ON DELETE RESTRICT
+        ON DELETE CASCADE
         NOT VALID
 );
 
@@ -45,12 +45,11 @@ CREATE TABLE license_session
     license_id         bytea                    NOT NULL,
 
     CONSTRAINT license_session_pkey              PRIMARY KEY (client_session_id),
-    CONSTRAINT license_session_machine_id_unique UNIQUE      (machine_id)
-        INCLUDE (client_session_id),
+    CONSTRAINT license_session_machine_id_unique UNIQUE      (client_session_id,machine_id),
     CONSTRAINT license_session_license_id_fkey   FOREIGN KEY (license_id)
         REFERENCES license (id) MATCH SIMPLE
         ON UPDATE RESTRICT
-        ON DELETE RESTRICT
+        ON DELETE CASCADE
         NOT VALID
 );
 

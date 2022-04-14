@@ -10,12 +10,12 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/sewiti/licensing-system/internal/core/auth"
 	"github.com/sewiti/licensing-system/internal/db"
-	"golang.org/x/crypto/nacl/box"
+	"github.com/sewiti/licensing-system/pkg/util"
 )
 
 type Core struct {
-	serverID  *[32]byte
-	serverKey *[32]byte
+	serverID  []byte
+	serverKey []byte
 
 	db  *db.Handler
 	lim *limiter
@@ -53,7 +53,7 @@ func NewCore(db *db.Handler, serverKey []byte, now time.Time, cfg LicensingConf)
 	if err != nil {
 		return nil, err
 	}
-	id, key, err := box.GenerateKey(bytes.NewBuffer(serverKey))
+	id, key, err := util.GenerateKey(bytes.NewBuffer(serverKey))
 	if err != nil {
 		return nil, err
 	}
@@ -80,14 +80,14 @@ func NewCore(db *db.Handler, serverKey []byte, now time.Time, cfg LicensingConf)
 	}, nil
 }
 
-func (c *Core) ServerID() *[32]byte {
-	id := new([32]byte)
-	copy(id[:], c.serverID[:])
+func (c *Core) ServerID() []byte {
+	id := make([]byte, 32)
+	copy(id, c.serverID[:])
 	return id
 }
 
-func (c *Core) ServerKey() *[32]byte {
-	key := new([32]byte)
-	copy(key[:], c.serverKey[:])
+func (c *Core) ServerKey() []byte {
+	key := make([]byte, 32)
+	copy(key, c.serverKey[:])
 	return key
 }

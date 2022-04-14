@@ -29,7 +29,7 @@ type limiter struct {
 
 func (lim *limiter) get(l *model.License) *rate.Limiter {
 	id := fmt.Sprintf("%s:%d",
-		base64.StdEncoding.EncodeToString(l.ID[:]), l.MaxSessions)
+		base64.StdEncoding.EncodeToString(l.ID), l.MaxSessions)
 	lim.mu.RLock()
 	v, exists := lim.cache.Get(id)
 	if exists {
@@ -55,9 +55,10 @@ func (lim *limiter) newRateLimiter(maxSessions int) *rate.Limiter {
 	rl := rate.NewLimiter(rate.Every(sessionEvery), burst)
 
 	// Make initial burst a minimum to support new session every SessionEveryInit.
-	burstInit := int(sessionEvery / lim.conf.SessionEveryInit)
-	if burstInit < burst {
-		rl.AllowN(time.Now(), burst-burstInit) // burst - (burst - burstInit) = burstInit
-	}
+	// FIXME
+	// burstInit := int(sessionEvery / lim.conf.SessionEveryInit)
+	// if burstInit < burst {
+	// 	rl.AllowN(time.Now(), burst-burstInit) // burst - (burst - burstInit) = burstInit
+	// }
 	return rl
 }

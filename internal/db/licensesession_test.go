@@ -32,14 +32,14 @@ func TestHandler_InsertLicenseSession(t *testing.T) {
 
 	mock.ExpectExec("INSERT INTO license_session (client_session_id,created,expire,identifier,license_id,machine_id,server_session_id,server_session_key) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)").
 		WithArgs(
-			ls.ClientID[:],
+			ls.ClientID,
 			ls.Created,
 			ls.Expire,
 			ls.Identifier,
-			ls.LicenseID[:],
+			ls.LicenseID,
 			ls.MachineID,
-			ls.ServerID[:],
-			ls.ServerKey[:],
+			ls.ServerID,
+			ls.ServerKey,
 		).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
@@ -94,19 +94,19 @@ func TestHandler_SelectAllLicenseSessionsByLicenseID(t *testing.T) {
 	})
 	for _, v := range expected {
 		rows.AddRow(
-			v.ClientID[:],
-			v.ServerID[:],
-			v.ServerKey[:],
+			v.ClientID,
+			v.ServerID,
+			v.ServerKey,
 			v.Identifier,
 			v.MachineID,
 			v.Created,
 			v.Expire,
-			v.LicenseID[:],
+			v.LicenseID,
 		)
 	}
 
 	mock.ExpectQuery("SELECT client_session_id, server_session_id, server_session_key, identifier, machine_id, created, expire, license_id FROM license_session WHERE license_id = $1").
-		WithArgs(licenseID[:]).
+		WithArgs(licenseID).
 		WillReturnRows(rows)
 
 	got, err := h.SelectAllLicenseSessionsByLicenseID(context.Background(), licenseID)
@@ -143,18 +143,18 @@ func TestHandler_SelectLicenseSessionByID(t *testing.T) {
 		"expire",
 		"license_id",
 	}).AddRow(
-		expected.ClientID[:],
-		expected.ServerID[:],
-		expected.ServerKey[:],
+		expected.ClientID,
+		expected.ServerID,
+		expected.ServerKey,
 		expected.Identifier,
 		expected.MachineID,
 		expected.Created,
 		expected.Expire,
-		expected.LicenseID[:],
+		expected.LicenseID,
 	)
 
 	mock.ExpectQuery("SELECT client_session_id, server_session_id, server_session_key, identifier, machine_id, created, expire, license_id FROM license_session WHERE client_session_id = $1").
-		WithArgs(expected.ClientID[:]).
+		WithArgs(expected.ClientID).
 		WillReturnRows(rows)
 
 	got, err := h.SelectLicenseSessionByID(context.Background(), expected.ClientID)
@@ -186,11 +186,11 @@ func TestHandler_UpdateLicenseSession(t *testing.T) {
 			ls.Created,
 			ls.Expire,
 			ls.Identifier,
-			ls.LicenseID[:],
+			ls.LicenseID,
 			ls.MachineID,
-			ls.ServerID[:],
-			ls.ServerKey[:],
-			ls.ClientID[:],
+			ls.ServerID,
+			ls.ServerKey,
+			ls.ClientID,
 		).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
@@ -207,7 +207,7 @@ func TestHandler_DeleteLicenseSessionBySessionID(t *testing.T) {
 	clientID := base64Key("TK3hUQGPZKiqXGpG76D9VGrjfvqjDXisv7nB7Qgm20Y=")
 
 	mock.ExpectExec("DELETE FROM license_session WHERE server_session_id = $1").
-		WithArgs(clientID[:]).
+		WithArgs(clientID).
 		WillReturnResult(sqlmock.NewResult(0, expected))
 
 	got, err := h.DeleteLicenseSessionBySessionID(context.Background(), clientID)
@@ -228,7 +228,7 @@ func TestHandler_DeleteLicenseSessionsByLicenseIDAndMachineID(t *testing.T) {
 	licenseID := base64Key("sswRe+P3j0nKqTcCLJ+cPk/8VyjrJzNyxcHCUoXYDFo=")
 
 	mock.ExpectExec("DELETE FROM license_session WHERE license_id = $1 AND machine_id = $2").
-		WithArgs(licenseID[:], machineID[:]).
+		WithArgs(licenseID, machineID).
 		WillReturnResult(sqlmock.NewResult(0, expected))
 
 	got, err := h.DeleteLicenseSessionsByLicenseIDAndMachineID(context.Background(), licenseID, machineID)

@@ -2,20 +2,25 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	cryptorand "crypto/rand"
 	mathrand "math/rand"
 
 	"github.com/sewiti/licensing-system/internal/model"
-	"golang.org/x/crypto/nacl/box"
+	"github.com/sewiti/licensing-system/pkg/util"
 )
 
 // Returns ErrTimeOutOfSync
 // Returns ErrLicenseExpired
 // Returns ErrRateLimitReached
+// Returns ErrLicenseIssuerDisabled
 // Returns SensitiveError
-func (c *Core) NewLicenseSession(ctx context.Context, l *model.License, clientSessionID *[32]byte, identifier string, machineID []byte, clientTime time.Time) (ls *model.LicenseSession, refresh time.Time, err error) {
+func (c *Core) NewLicenseSession(ctx context.Context, l *model.License, clientSessionID []byte, identifier string, machineID []byte, appVersion string, clientTime time.Time) (ls *model.LicenseSession, refresh time.Time, err error) {
+	if len(clientSessionID) != 32 {
+		return nil, time.Time{}, fmt.Errorf("%w client session id", ErrInvalidInput)
+	}
 	now := time.Now()
 	if !c.timeInSync(now, clientTime) {
 		return nil, time.Time{}, ErrTimeOutOfSync
@@ -27,9 +32,16 @@ func (c *Core) NewLicenseSession(ctx context.Context, l *model.License, clientSe
 	if !rl.Allow() {
 		return nil, time.Time{}, ErrRateLimitReached
 	}
+	li, err := c.GetLicenseIssuer(ctx, l.IssuerID)
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+	if !li.Active {
+		return nil, time.Time{}, ErrLicenseIssuerDisabled
+	}
 	// Max sessions are taken care of by the cleanup routine.
 
-	serverID, serverKey, err := box.GenerateKey(cryptorand.Reader)
+	serverID, serverKey, err := util.GenerateKey(cryptorand.Reader)
 	if err != nil {
 		return nil, time.Time{}, err
 	}
@@ -41,28 +53,37 @@ func (c *Core) NewLicenseSession(ctx context.Context, l *model.License, clientSe
 		ServerKey:  serverKey,
 		Identifier: identifier,
 		MachineID:  machineID,
+		AppVersion: appVersion,
 		Created:    now,
 		Expire:     expiry,
 		LicenseID:  l.ID,
 	}
-	// Delete old client's license sessions
-	_, err = c.db.DeleteLicenseSessionsByLicenseIDAndMachineID(ctx, l.ID, machineID)
+	// // Delete old client's license sessions
+	// _, err = c.db.DeleteLicenseSessionsByLicenseIDAndMachineID(ctx, l.ID, machineID)
+	// err = handleErrDB(err, "deleting old license sessions")
+	// if err != nil && !errors.Is(err, ErrNotFound) {
+	// 	return nil, time.Time{}, err
+	// }
+	err = c.db.UpdateLicense(ctx, l.ID, l.IssuerID, map[string]interface{}{
+		"last_used": now,
+	})
+	err = handleErrDB(err, "updating license")
 	if err != nil {
-		return nil, time.Time{}, handleErrDB(err, "deleting old license sessions")
+		return nil, time.Time{}, err
 	}
 	err = c.db.InsertLicenseSession(ctx, s)
 	return s, refresh, handleErrDB(err, "creating license session")
 }
 
 // Returns SensitiveError
-func (c *Core) GetAllLicenseSessionsByLicense(ctx context.Context, licenseID *[32]byte) ([]*model.LicenseSession, error) {
+func (c *Core) GetAllLicenseSessionsByLicense(ctx context.Context, licenseID []byte) ([]*model.LicenseSession, error) {
 	lss, err := c.db.SelectAllLicenseSessionsByLicenseID(ctx, licenseID)
 	return lss, handleErrDB(err, "getting all license sessions")
 }
 
 // Returns ErrNotFound
 // Returns SensitiveError
-func (c *Core) GetLicenseSession(ctx context.Context, clientSessionID *[32]byte) (*model.LicenseSession, error) {
+func (c *Core) GetLicenseSession(ctx context.Context, clientSessionID []byte) (*model.LicenseSession, error) {
 	ls, err := c.db.SelectLicenseSessionByID(ctx, clientSessionID)
 	return ls, handleErrDB(err, "getting license session")
 }
@@ -92,8 +113,9 @@ func (c *Core) UpdateLicenseSession(ctx context.Context, ls *model.LicenseSessio
 	return refresh, handleErrDB(err, "updating license session")
 }
 
+// Returns ErrNotFound
 // Returns SensitiveError
-func (c *Core) DeleteLicenseSession(ctx context.Context, clientSessionID *[32]byte) error {
+func (c *Core) DeleteLicenseSession(ctx context.Context, clientSessionID []byte) error {
 	// We don't care about client time when deleting session.
 	_, err := c.db.DeleteLicenseSessionBySessionID(ctx, clientSessionID)
 	return handleErrDB(err, "deleting license session")

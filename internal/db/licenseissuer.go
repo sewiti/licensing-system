@@ -19,6 +19,8 @@ func (h *Handler) InsertLicenseIssuer(ctx context.Context, li *model.LicenseIssu
 			"active":        li.Active,
 			"username":      li.Username,
 			"password_hash": li.PasswordHash,
+			"email":         li.Email,
+			"phone_number":  li.PhoneNumber,
 			"max_licenses":  li.MaxLicenses,
 			"created":       li.Created,
 			"updated":       li.Updated,
@@ -29,7 +31,9 @@ func (h *Handler) InsertLicenseIssuer(ctx context.Context, li *model.LicenseIssu
 }
 
 func (h *Handler) SelectAllLicenseIssuers(ctx context.Context) ([]*model.LicenseIssuer, error) {
-	return h.selectLicenseIssuers(ctx, "SelectAll", selectPassthrough)
+	return h.selectLicenseIssuers(ctx, "SelectAll", func(sq squirrel.SelectBuilder) squirrel.SelectBuilder {
+		return sq.OrderBy("active DESC", "id")
+	})
 }
 
 func (h *Handler) SelectLicenseIssuerByUsername(ctx context.Context, licenseIssuerUsername string) (*model.LicenseIssuer, error) {
@@ -69,6 +73,8 @@ func (h *Handler) selectLicenseIssuers(ctx context.Context, action string, d sel
 		"active",
 		"username",
 		"password_hash",
+		"email",
+		"phone_number",
 		"max_licenses",
 		"created",
 		"updated",
@@ -88,6 +94,8 @@ func (h *Handler) selectLicenseIssuers(ctx context.Context, action string, d sel
 			&li.Active,
 			&li.Username,
 			&li.PasswordHash,
+			&li.Email,
+			&li.PhoneNumber,
 			&li.MaxLicenses,
 			&li.Created,
 			&li.Updated,
@@ -115,12 +123,7 @@ func (h *Handler) UpdateLicenseIssuer(ctx context.Context, licenseIssuerID int, 
 		Where(squirrel.Eq{
 			"id": licenseIssuerID,
 		})
-
-	_, err := sq.ExecContext(ctx)
-	if err != nil {
-		return &Error{err: err, Scope: scope, Action: action}
-	}
-	return nil
+	return h.execUpdate(ctx, sq, scope, action)
 }
 
 func (h *Handler) UpdateLicenseIssuerByUsername(ctx context.Context, username string, update map[string]interface{}) error {

@@ -3,8 +3,6 @@ package server
 import (
 	"encoding/json"
 	"errors"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 
@@ -40,7 +38,7 @@ func createLicense(c *core.Core) apiAuthHandler {
 			}
 		}
 
-		l, err := c.NewLicense(r.Context(), li, req.Note, req.Data, req.MaxSessions, req.ValidUntil)
+		l, err := c.NewLicense(r.Context(), li, &req)
 		if err != nil {
 			switch {
 			case errors.Is(err, core.ErrInvalidInput):
@@ -64,10 +62,24 @@ func getAllLicenses(c *core.Core) apiAuthHandler {
 			return responseBadRequestf("license issuer id: %v", err)
 		}
 
+		_, err = c.GetLicenseIssuer(r.Context(), licenseIssuerID)
+		if err != nil {
+			switch {
+			case errors.Is(err, core.ErrNotFound):
+				return responseNotFound()
+			default:
+				logError(err, scope)
+				return responseInternalServerError()
+			}
+		}
+
 		ll, err := c.GetAllLicensesByIssuer(r.Context(), licenseIssuerID)
 		if err != nil {
 			logError(err, scope)
 			return responseInternalServerError()
+		}
+		if ll == nil {
+			ll = make([]*model.License, 0) // Force empty array json
 		}
 		return responseJson(http.StatusOK, ll)
 	}
@@ -77,11 +89,11 @@ func getLicense(c *core.Core) apiAuthHandler {
 	return func(r *http.Request, login *model.LicenseIssuer) *apiResponse {
 		const scope = "get license"
 		vars := mux.Vars(r)
-		_, err := strconv.Atoi(vars["LICENSE_ISSUER_ID"])
+		licenseIssuerID, err := strconv.Atoi(vars["LICENSE_ISSUER_ID"])
 		if err != nil {
 			return responseBadRequestf("license issuer id: %v", err)
 		}
-		licenseID, err := pathVarID(vars["LICENSE_ID"])
+		licenseID, err := pathVarKey(vars["LICENSE_ID"])
 		if err != nil {
 			return responseBadRequestf("license id: %v", err)
 		}
@@ -96,6 +108,9 @@ func getLicense(c *core.Core) apiAuthHandler {
 				return responseInternalServerError()
 			}
 		}
+		if licenseIssuerID != l.IssuerID {
+			return responseNotFound()
+		}
 		return responseJson(http.StatusOK, l)
 	}
 }
@@ -104,40 +119,39 @@ func updateLicense(c *core.Core) apiAuthHandler {
 	return func(r *http.Request, login *model.LicenseIssuer) *apiResponse {
 		const scope = "update license"
 		vars := mux.Vars(r)
-		_, err := strconv.Atoi(vars["LICENSE_ISSUER_ID"])
+		licenseIssuerID, err := strconv.Atoi(vars["LICENSE_ISSUER_ID"])
 		if err != nil {
 			return responseBadRequestf("license issuer id: %v", err)
 		}
-		licenseID, err := pathVarID(vars["LICENSE_ID"])
+		licenseID, err := pathVarKey(vars["LICENSE_ID"])
 		if err != nil {
 			return responseBadRequestf("license id: %v", err)
 		}
 
-		data, err := ioutil.ReadAll(io.LimitReader(r.Body, maxRequestSize))
+		data, err := readAllLim(r.Body)
 		if err != nil {
 			return responseBadRequest(err)
 		}
-		{
-			// Validate schema
-			var li model.License
-			err = json.Unmarshal(data, &li)
-			if err != nil {
-				return responseBadRequest(err)
-			}
+		l := &model.License{
+			ID:       licenseID,
+			IssuerID: licenseIssuerID,
+		}
+		err = json.Unmarshal(data, l)
+		if err != nil {
+			return responseBadRequest(err)
 		}
 
-		update := make(map[string]interface{})
-		err = json.Unmarshal(data, &update)
+		changes, err := core.UnmarshalChanges(data)
 		if err != nil {
 			return responseBadRequest(err) // should never happen
 		}
 		mask, _ := c.AuthorizeLicenseUpdate(login)
-		field, ok := core.UpdateInMask(update, mask)
+		field, ok := core.ChangesInMask(changes, mask)
 		if !ok {
-			return responseBadRequestf("unable to change field: %s", field)
+			return responseBadRequestf("unauthorized to change field: %s", field)
 		}
 
-		err = c.UpdateLicense(r.Context(), licenseID, update)
+		err = c.UpdateLicense(r.Context(), l, changes)
 		if err != nil {
 			// TODO
 			switch {
@@ -149,7 +163,7 @@ func updateLicense(c *core.Core) apiAuthHandler {
 			}
 		}
 
-		l, err := c.GetLicense(r.Context(), licenseID)
+		l, err = c.GetLicense(r.Context(), licenseID)
 		if err != nil {
 			switch {
 			case errors.Is(err, core.ErrNotFound):
@@ -167,11 +181,11 @@ func deleteLicense(c *core.Core) apiAuthHandler {
 	return func(r *http.Request, login *model.LicenseIssuer) *apiResponse {
 		const scope = "delete license"
 		vars := mux.Vars(r)
-		_, err := strconv.Atoi(vars["LICENSE_ISSUER_ID"])
+		licenseIssuerID, err := strconv.Atoi(vars["LICENSE_ISSUER_ID"])
 		if err != nil {
 			return responseBadRequestf("license issuer id: %v", err)
 		}
-		licenseID, err := pathVarID(vars["LICENSE_ID"])
+		licenseID, err := pathVarKey(vars["LICENSE_ID"])
 		if err != nil {
 			return responseBadRequestf("license id: %v", err)
 		}
@@ -180,8 +194,12 @@ func deleteLicense(c *core.Core) apiAuthHandler {
 		if !canDelete {
 			return responseForbidden()
 		}
-		err = c.DeleteLicense(r.Context(), licenseID)
+		err = c.DeleteLicense(r.Context(), licenseID, licenseIssuerID)
 		if err != nil {
+			switch {
+			case errors.Is(err, core.ErrNotFound):
+				return responseNotFound()
+			}
 			logError(err, scope)
 			return responseInternalServerError()
 		}

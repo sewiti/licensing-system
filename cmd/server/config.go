@@ -26,12 +26,12 @@ type config struct {
 
 	Licensing struct {
 		ServerKey       []byte
-		MaxTimeDrift    time.Duration `envconfig:"default=24h"`
-		CleanupInterval time.Duration `envconfig:"default=30m"`
+		MaxTimeDrift    time.Duration `envconfig:"default=6h"`
+		CleanupInterval time.Duration `envconfig:"default=20m"`
 
 		Refresh struct {
 			Min    time.Duration `envconfig:"default=5m"`
-			Max    time.Duration `envconfig:"default=4h"`
+			Max    time.Duration `envconfig:"default=2h"`
 			Jitter float64       `envconfig:"default=0.1"`
 		}
 

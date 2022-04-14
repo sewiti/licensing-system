@@ -50,6 +50,7 @@ func runServer() error {
 	if err != nil {
 		return fmt.Errorf("open db: %w", err)
 	}
+	defer db.Close()
 
 	// Core
 	conf := core.LicensingConf{

@@ -40,3 +40,29 @@ func TestCore_IsPrivileged(t *testing.T) {
 		})
 	}
 }
+
+func TestCore_SufficientPasswdStrength(t *testing.T) {
+	c := &Core{
+		minPasswdEntropy: 30,
+	}
+	tests := []struct {
+		username    string
+		password    string
+		wantEntropy float64
+		wantOk      bool
+	}{
+		{
+			username:    "boi",
+			password:    "boi",
+			wantEntropy: 0.0,
+			wantOk:      false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.username, func(t *testing.T) {
+			gotEntropy, gotOk := c.SufficientPasswdStrength(tt.username, tt.password)
+			assert.Equal(t, tt.wantEntropy, gotEntropy)
+			assert.Equal(t, tt.wantOk, gotOk)
+		})
+	}
+}

@@ -3,27 +3,34 @@ package core
 import (
 	"context"
 	cryptorand "crypto/rand"
-	"encoding/json"
 	"fmt"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/sewiti/licensing-system/internal/model"
-	"golang.org/x/crypto/nacl/box"
+	"github.com/sewiti/licensing-system/pkg/util"
 )
-
-var licenseRemap = map[string]string{
-	"maxSessions": "max_sessions",
-	"validUntil":  "valid_until",
-}
 
 // Returns ErrInvalidInput
 // Returns ErrExceedsLimit
 // Returns SensitiveError
-func (c *Core) NewLicense(ctx context.Context, li *model.LicenseIssuer, note string, data json.RawMessage, maxSessions int, validUntil *time.Time) (*model.License, error) {
-	if !ValidNote(note) {
+func (c *Core) NewLicense(ctx context.Context, li *model.LicenseIssuer, req *model.License) (*model.License, error) {
+	if req == nil {
+		return nil, fmt.Errorf("%w request", ErrInvalidInput)
+	}
+	if !ValidLicenseName(req.Name) {
+		return nil, fmt.Errorf("%w name", ErrInvalidInput)
+	}
+	if !ValidLicenseTags(req.Tags) {
+		return nil, fmt.Errorf("%w tags", ErrInvalidInput)
+	}
+	if req.EndUserEmail != "" && !ValidEmail(req.EndUserEmail) {
+		return nil, fmt.Errorf("%w end user email", ErrInvalidInput)
+	}
+	if !ValidLicenseNote(req.Note) {
 		return nil, fmt.Errorf("%w note", ErrInvalidInput)
 	}
-	if maxSessions <= 0 {
+	if req.MaxSessions <= 0 {
 		return nil, fmt.Errorf("%w max sessions", ErrInvalidInput)
 	}
 	count, err := c.db.SelectLicensesCountByIssuerID(ctx, li.ID)
@@ -34,21 +41,25 @@ func (c *Core) NewLicense(ctx context.Context, li *model.LicenseIssuer, note str
 		return nil, fmt.Errorf("max sessions: %w", ErrExceedsLimit)
 	}
 
-	id, key, err := box.GenerateKey(cryptorand.Reader)
+	id, key, err := util.GenerateKey(cryptorand.Reader)
 	if err != nil {
 		return nil, err
 	}
 	now := time.Now()
 	l := &model.License{
-		ID:          id,
-		Key:         key,
-		Note:        note,
-		Data:        data,
-		MaxSessions: maxSessions,
-		ValidUntil:  validUntil,
-		Created:     now,
-		Updated:     now,
-		IssuerID:    li.ID,
+		ID:           id,
+		Key:          key,
+		Name:         req.Name,
+		Tags:         req.Tags,
+		EndUserEmail: req.EndUserEmail,
+		Note:         req.Note,
+		Data:         req.Data,
+		MaxSessions:  req.MaxSessions,
+		ValidUntil:   req.ValidUntil,
+		Created:      now,
+		Updated:      now,
+		LastUsed:     nil,
+		IssuerID:     li.ID,
 	}
 	err = c.db.InsertLicense(ctx, l)
 	return l, handleErrDB(err, "creating license")
@@ -62,43 +73,69 @@ func (c *Core) GetAllLicensesByIssuer(ctx context.Context, licenseIssuerID int) 
 
 // Returns ErrNotFound
 // Returns SensitiveError
-func (c *Core) GetLicense(ctx context.Context, licenseID *[32]byte) (*model.License, error) {
+func (c *Core) GetLicense(ctx context.Context, licenseID []byte) (*model.License, error) {
 	l, err := c.db.SelectLicenseByID(ctx, licenseID)
 	return l, handleErrDB(err, "getting license")
 }
 
 // Returns ErrInvalidInput
 // Returns SensitiveError
-func (c *Core) UpdateLicense(ctx context.Context, licenseID *[32]byte, update map[string]interface{}) error {
-	// Validate note
-	v, ok := update["note"]
-	if ok {
-		note, ok := v.(string)
-		if !ok || !ValidNote(note) {
-			return fmt.Errorf("%w note", ErrInvalidInput)
-		}
-	}
-	// Validate max sessions
-	v, ok = update["maxSessions"]
-	if ok {
-		maxSession, ok := v.(int)
-		if !ok || maxSession <= 0 {
-			return fmt.Errorf("%w max sessions", ErrInvalidInput)
-		}
+func (c *Core) UpdateLicense(ctx context.Context, l *model.License, changes map[string]struct{}) error {
+	update := map[string]interface{}{
+		"updated": time.Now(),
 	}
 
-	updateApplyRemap(update, licenseRemap) // Remap json keys to db keys
-	update["updated"] = time.Now()
-	err := c.db.UpdateLicense(ctx, licenseID, update)
+	if _, ok := changes["name"]; ok {
+		if !ValidLicenseName(l.Name) {
+			return fmt.Errorf("%w name", ErrInvalidInput)
+		}
+		update["name"] = l.Name
+	}
+	if _, ok := changes["tags"]; ok {
+		if !ValidLicenseTags(l.Tags) {
+			return fmt.Errorf("%w tags", ErrInvalidInput)
+		}
+		update["tags"] = pq.Array(l.Tags)
+	}
+	if _, ok := changes["endUserEmail"]; ok {
+		if l.EndUserEmail != "" && !ValidEmail(l.EndUserEmail) {
+			return fmt.Errorf("%w end user email", ErrInvalidInput)
+		}
+		update["end_user_email"] = l.EndUserEmail
+	}
+	if _, ok := changes["note"]; ok {
+		if !ValidLicenseNote(l.Note) {
+			return fmt.Errorf("%w note", ErrInvalidInput)
+		}
+		update["note"] = l.Note
+	}
+	if _, ok := changes["data"]; ok {
+		update["data"] = l.Data
+	}
+	if _, ok := changes["maxSessions"]; ok {
+		if l.MaxSessions <= 0 {
+			return fmt.Errorf("%w max sessions", ErrInvalidInput)
+		}
+		update["max_sessions"] = l.MaxSessions
+	}
+	if _, ok := changes["validUntil"]; ok {
+		update["valid_until"] = l.ValidUntil
+	}
+	if _, ok := changes["lastUsed"]; ok {
+		update["last_used"] = l.LastUsed
+	}
+
+	err := c.db.UpdateLicense(ctx, l.ID, l.IssuerID, update)
 	return handleErrDB(err, "updating license")
 }
 
+// Returns ErrNotFound
 // Returns SensitiveError
-func (c *Core) DeleteLicense(ctx context.Context, licenseID *[32]byte) error {
-	_, err := c.db.DeleteLicenseByID(ctx, licenseID)
+func (c *Core) DeleteLicense(ctx context.Context, licenseID []byte, licenseIssuerID int) error {
+	_, err := c.db.DeleteLicenseByID(ctx, licenseID, licenseIssuerID)
 	return handleErrDB(err, "deleting license")
 }
 
 func (c *Core) AuthorizeLicenseUpdate(login *model.LicenseIssuer) (updateMask []string, delete bool) {
-	return []string{"note", "data", "maxSessions", "validUntil"}, true
+	return []string{"name", "tags", "endUserEmail", "note", "data", "maxSessions", "validUntil"}, true
 }

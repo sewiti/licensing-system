@@ -1,11 +1,13 @@
 package core
 
-func UpdateInMask(update map[string]interface{}, mask []string) (badField string, ok bool) {
-updateLoop:
-	for k := range update {
+import "encoding/json"
+
+func ChangesInMask(changes map[string]struct{}, mask []string) (badField string, ok bool) {
+changesLoop:
+	for k := range changes {
 		for _, v := range mask {
 			if k == v {
-				continue updateLoop
+				continue changesLoop
 			}
 		}
 		return k, false
@@ -13,13 +15,15 @@ updateLoop:
 	return "", true
 }
 
-func updateApplyRemap(update map[string]interface{}, remap map[string]string) {
-	for from, to := range remap {
-		v, ok := update[from]
-		if !ok {
-			continue
-		}
-		update[to] = v
-		delete(update, from)
+func UnmarshalChanges(data []byte) (map[string]struct{}, error) {
+	v := make(map[string]interface{})
+	err := json.Unmarshal(data, &v)
+	if err != nil {
+		return nil, err
 	}
+	changes := make(map[string]struct{}, len(v))
+	for k := range v {
+		changes[k] = struct{}{}
+	}
+	return changes, nil
 }

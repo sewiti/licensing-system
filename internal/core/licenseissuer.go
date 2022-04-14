@@ -21,9 +21,15 @@ var licenseIssuerRemap = map[string]string{
 // Returns ErrPasswdTooWeak
 // Returns ErrDuplicate
 // Returns SensitiveError
-func (c *Core) NewLicenseIssuer(ctx context.Context, username, password string, maxLicenses model.Limit) (*model.LicenseIssuer, error) {
+func (c *Core) NewLicenseIssuer(ctx context.Context, username, password, email, phoneNumber string, maxLicenses model.Limit) (*model.LicenseIssuer, error) {
 	if !ValidUsername(username) {
 		return nil, fmt.Errorf("%w username", ErrInvalidInput)
+	}
+	if email != "" && !ValidEmail(email) {
+		return nil, fmt.Errorf("%w email", ErrInvalidInput)
+	}
+	if phoneNumber != "" && !ValidPhoneNumber(phoneNumber) {
+		return nil, fmt.Errorf("%w phone number", ErrInvalidInput)
 	}
 	entropy, ok := c.SufficientPasswdStrength(username, password)
 	if !ok {
@@ -39,11 +45,12 @@ func (c *Core) NewLicenseIssuer(ctx context.Context, username, password string, 
 		Active:       true,
 		Username:     username,
 		PasswordHash: passwdHash,
+		Email:        email,
+		PhoneNumber:  phoneNumber,
 		MaxLicenses:  maxLicenses,
 		Created:      now,
 		Updated:      now,
 	}
-
 	li.ID, err = c.db.InsertLicenseIssuer(ctx, li)
 	return li, handleErrDB(err, "creating license issuer")
 }
@@ -53,6 +60,22 @@ func (c *Core) GetAllLicenseIssuers(ctx context.Context) ([]*model.LicenseIssuer
 	lii, err := c.db.SelectAllLicenseIssuers(ctx)
 	return lii, handleErrDB(err, "getting all license issuers")
 }
+
+// // Returns SensitiveError
+// func (c *Core) GetPartLicenseIssuers(ctx context.Context, limit, offset int) (lii []*model.LicenseIssuer, total int, err error) {
+// 	lii, err = c.db.SelectPartLicenseIssuers(ctx, limit, offset)
+// 	if err != nil {
+// 		return nil, 0, handleErrDB(err, "getting part of license issuers")
+// 	}
+// 	total, err = c.db.SelectCountLicenseIssuers(ctx)
+// 	return lii, total, handleErrDB(err, "getting count of license issuers")
+// }
+
+// // Returns SensitiveError
+// func (c *Core) SearchLicenseIssuers(ctx context.Context, username string, limit int) ([]*model.LicenseIssuer, error) {
+// 	lii, err := c.db.SelectLicenseIssuersContainUsername(ctx, username, limit)
+// 	return lii, handleErrDB(err, "searching license issuers by username")
+// }
 
 // Returns ErrNotFound
 // Returns SensitiveError
@@ -72,11 +95,11 @@ func (c *Core) GetLicenseIssuer(ctx context.Context, licenseIssuerID int) (*mode
 // Returns ErrInvalidInput
 // Returns ErrNotFound
 // Returns SensitiveError
-func (c *Core) UpdateLicenseIssuer(ctx context.Context, licenseIssuerID int, update map[string]interface{}) error {
-	if licenseIssuerID == 0 {
+func (c *Core) UpdateLicenseIssuer(ctx context.Context, li *model.LicenseIssuer, changes map[string]struct{}) error {
+	if li.ID == 0 {
 		return ErrSuperadminImmutable
 	}
-	return c.updateLicenseIssuer(ctx, licenseIssuerID, update)
+	return c.updateLicenseIssuer(ctx, li, changes)
 }
 
 // UpdateLicenseIssuerBypass
@@ -84,42 +107,53 @@ func (c *Core) UpdateLicenseIssuer(ctx context.Context, licenseIssuerID int, upd
 // Returns ErrInvalidInput
 // Returns ErrNotFound
 // Returns SensitiveError
-func (c *Core) UpdateLicenseIssuerBypass(ctx context.Context, licenseIssuerID int, update map[string]interface{}) error {
-	return c.updateLicenseIssuer(ctx, licenseIssuerID, update)
+func (c *Core) UpdateLicenseIssuerBypass(ctx context.Context, li *model.LicenseIssuer, changes map[string]struct{}) error {
+	return c.updateLicenseIssuer(ctx, li, changes)
 }
 
-func (c *Core) updateLicenseIssuer(ctx context.Context, licenseIssuerID int, update map[string]interface{}) error {
-	// Validate username
-	v, ok := update["username"]
-	if ok {
-		username, ok := v.(string)
-		if !ok || !ValidUsername(username) {
+func (c *Core) updateLicenseIssuer(ctx context.Context, li *model.LicenseIssuer, changes map[string]struct{}) error {
+	update := map[string]interface{}{
+		"updated": time.Now(),
+	}
+
+	if _, ok := changes["active"]; ok {
+		update["active"] = li.Active
+	}
+	if _, ok := changes["username"]; ok {
+		if !ValidUsername(li.Username) {
 			return fmt.Errorf("%w username", ErrInvalidInput)
 		}
+		update["username"] = li.Username
 	}
-	// Validate max licenses
-	v, ok = update["maxLicenses"]
-	if ok {
-		maxLicenses, ok := v.(model.Limit)
-		if !ok {
-			return fmt.Errorf("%w max licenses", ErrInvalidInput)
+	if _, ok := changes["email"]; ok {
+		if li.Email != "" && !ValidEmail(li.Email) {
+			return fmt.Errorf("%w email", ErrInvalidInput)
 		}
-		count, err := c.db.SelectLicensesCountByIssuerID(ctx, licenseIssuerID)
+		update["email"] = li.Email
+	}
+	if _, ok := changes["phoneNumber"]; ok {
+		if li.PhoneNumber != "" && !ValidPhoneNumber(li.PhoneNumber) {
+			return fmt.Errorf("%w phone number", ErrInvalidInput)
+		}
+		update["phone_number"] = li.PhoneNumber
+	}
+	if _, ok := changes["maxLicenses"]; ok {
+		count, err := c.db.SelectLicensesCountByIssuerID(ctx, li.ID)
 		if err != nil {
 			return handleErrDB(err, "counting licenses")
 		}
-		if !maxLicenses.Allows(count) {
+		if !li.MaxLicenses.Allows(count) {
 			return fmt.Errorf("%w max licenses: too small", ErrInvalidInput)
 		}
+		update["max_licenses"] = li.MaxLicenses
 	}
 
-	updateApplyRemap(update, licenseIssuerRemap) // Remap json keys to db keys
-	update["updated"] = time.Now()
-	err := c.db.UpdateLicenseIssuer(ctx, licenseIssuerID, update)
+	err := c.db.UpdateLicenseIssuer(ctx, li.ID, update)
 	return handleErrDB(err, "updating license issuer")
 }
 
 // Returns ErrSuperadminImmutable
+// Returns ErrNotFound
 // Returns SensitiveError
 func (c *Core) DeleteLicenseIssuer(ctx context.Context, licenseIssuerID int) error {
 	if licenseIssuerID == 0 {
@@ -129,11 +163,11 @@ func (c *Core) DeleteLicenseIssuer(ctx context.Context, licenseIssuerID int) err
 	return handleErrDB(err, "deleting license issuer")
 }
 
-func (c *Core) AuthorizeLicenseIssuerUpdate(login *model.LicenseIssuer) (updateMask []string, delete bool) {
+func (c *Core) AuthorizeLicenseIssuerUpdate(login *model.LicenseIssuer) (mask []string, delete bool) {
 	if c.IsPrivileged(login) {
 		// Privileged user can manage most of the account
-		return []string{"active", "username", "maxLicenses"}, true
+		return []string{"active", "username", "email", "phoneNumber", "maxLicenses"}, true
 	}
-	// Normal user can change only it's username
-	return []string{"username"}, false
+	// Normal user can change only it's contacts
+	return []string{"email", "phoneNumber"}, false
 }

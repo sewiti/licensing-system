@@ -5,44 +5,45 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"path"
 	"time"
 
 	"github.com/sewiti/licensing-system/pkg/util"
 )
 
 type createLicenseSessionReq struct {
-	LicenseID *[32]byte `json:"lid"`
-	Data      []byte    `json:"data"`
-	N         *[24]byte `json:"n"`
+	LicenseID []byte `json:"lid"`
+	Data      []byte `json:"data"`
+	N         []byte `json:"n"`
 }
 
 type createLicenseSessionReqData struct {
-	ClientSessionID *[32]byte `json:"csid"`
+	ClientSessionID []byte    `json:"csid"`
 	Identifier      string    `json:"id"`
 	MachineID       []byte    `json:"machineID"`
+	AppVersion      string    `json:"appVersion"`
 	Timestamp       time.Time `json:"ts"`
 }
 
 type createLicenseSessionRes struct {
-	Data []byte    `json:"data"`
-	N    *[24]byte `json:"n"`
+	Data []byte `json:"data"`
+	N    []byte `json:"n"`
 }
 
 type createLicenseSessionResData struct {
-	ServerSessionID *[32]byte       `json:"ssid"`
-	Timestamp       time.Time       `json:"ts"`
-	RefreshAfter    time.Time       `json:"refresh"`
-	ExpireAfter     time.Time       `json:"expire"`
-	Data            json.RawMessage `json:"data,omitempty"`
+	ServerSessionID []byte    `json:"ssid"`
+	Timestamp       time.Time `json:"ts"`
+	RefreshAfter    time.Time `json:"refresh"`
+	ExpireAfter     time.Time `json:"expire"`
+	Data            []byte    `json:"data,omitempty"`
 }
 
 type updateLicenseSessionReq struct {
-	Data []byte    `json:"data"`
-	N    *[24]byte `json:"n"`
+	Data []byte `json:"data"`
+	N    []byte `json:"n"`
 }
 
 type updateLicenseSessionReqData struct {
@@ -50,27 +51,27 @@ type updateLicenseSessionReqData struct {
 }
 
 type updateLicenseSessionRes struct {
-	Data []byte    `json:"data"`
-	N    *[24]byte `json:"n"`
+	Data []byte `json:"data"`
+	N    []byte `json:"n"`
 }
 
 type updateLicenseSessionResData struct {
-	Timestamp    time.Time       `json:"ts"`
-	RefreshAfter time.Time       `json:"refresh"`
-	ExpireAfter  time.Time       `json:"expire"`
-	Data         json.RawMessage `json:"data,omitempty"`
+	Timestamp    time.Time `json:"ts"`
+	RefreshAfter time.Time `json:"refresh"`
+	ExpireAfter  time.Time `json:"expire"`
+	Data         []byte    `json:"data,omitempty"`
 }
 
 type deleteLicenseSessionReq struct {
-	Data []byte    `json:"data"`
-	N    *[24]byte `json:"n"`
+	Data []byte `json:"data"`
+	N    []byte `json:"n"`
 }
 
 type deleteLicenseSessionReqData struct {
 	Timestamp time.Time `json:"ts"`
 }
 
-type temporaryError error
+var errTemporary = errors.New("temporary")
 
 func sendJsonRequest(ctx context.Context, method, url string, reqData, resData interface{}) error {
 	bs, err := json.Marshal(reqData)
@@ -85,15 +86,17 @@ func sendJsonRequest(ctx context.Context, method, url string, reqData, resData i
 
 	r, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return temporaryError(err)
+		return fmt.Errorf("%w: %v", errTemporary, err)
 	}
 	defer r.Body.Close()
 
 	switch r.StatusCode {
 	case http.StatusOK, http.StatusCreated:
-		err = json.NewDecoder(r.Body).Decode(resData)
-		if err != nil {
-			return temporaryError(err)
+		if resData != nil {
+			err = json.NewDecoder(r.Body).Decode(resData)
+			if err != nil {
+				return fmt.Errorf("%w: %v", errTemporary, err)
+			}
 		}
 		return nil
 
@@ -106,12 +109,15 @@ func sendJsonRequest(ctx context.Context, method, url string, reqData, resData i
 		}
 		err = json.NewDecoder(r.Body).Decode(&msg)
 		if err != nil {
-			return temporaryError(fmt.Errorf("unexpected status: %s", r.Status))
+			return fmt.Errorf("%w: unexpected status: %s", errTemporary, r.Status)
 		}
-		return temporaryError(fmt.Errorf("unexpected status: %s: %s", r.Status, msg.Message))
+		return fmt.Errorf("%w: unexpected status: %s: %s", errTemporary, r.Status, msg.Message)
+
+	case http.StatusNotFound:
+		return fmt.Errorf("unexpected status: %s", r.Status)
 
 	case http.StatusInternalServerError:
-		return temporaryError(fmt.Errorf("unexpected status: %s", r.Status))
+		return fmt.Errorf("%w: unexpected status: %s", errTemporary, r.Status)
 
 	default:
 		var msg struct {
@@ -125,11 +131,12 @@ func sendJsonRequest(ctx context.Context, method, url string, reqData, resData i
 	}
 }
 
-func (c *Client) sendCreateSession(ctx context.Context, clientID, clientKey *[32]byte, rand io.Reader) (*createLicenseSessionResData, error) {
+func (c *Client) sendCreateSession(ctx context.Context, clientID, clientKey []byte, rand io.Reader) (*createLicenseSessionResData, error) {
 	reqData := createLicenseSessionReqData{
 		ClientSessionID: clientID,
 		Identifier:      c.identifier,
 		MachineID:       c.machineID,
+		AppVersion:      c.appVersion,
 		Timestamp:       time.Now(),
 	}
 	nonce, err := util.GenerateNonce(rand)
@@ -178,7 +185,7 @@ func (s *session) sendRefresh(ctx context.Context, rand io.Reader) (*updateLicen
 		N:    nonce,
 	}
 	var res updateLicenseSessionRes
-	url := path.Join(s.url, base64.URLEncoding.EncodeToString(s.clientID[:]))
+	url := fmt.Sprintf("%s/%s", s.url, base64.URLEncoding.EncodeToString(s.clientID))
 	err = sendJsonRequest(ctx, http.MethodPatch, url, req, &res)
 	if err != nil {
 		return nil, err
@@ -192,34 +199,23 @@ func (s *session) sendRefresh(ctx context.Context, rand io.Reader) (*updateLicen
 	return &resData, nil
 }
 
-func (s *session) sendClose(ctx context.Context, rand io.Reader) (*deleteLicenseSessionReqData, error) {
+func (s *session) sendClose(ctx context.Context, rand io.Reader) error {
 	reqData := deleteLicenseSessionReqData{
 		Timestamp: time.Now(),
 	}
 	nonce, err := util.GenerateNonce(rand)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	bs, err := util.SealJsonBox(reqData, nonce, s.serverID, s.clientKey)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	req := deleteLicenseSessionReq{
 		Data: bs,
 		N:    nonce,
 	}
-	var res deleteLicenseSessionReq
-	url := path.Join(s.url, base64.URLEncoding.EncodeToString(s.clientID[:]))
-	err = sendJsonRequest(ctx, http.MethodDelete, url, req, res)
-	if err != nil {
-		return nil, err
-	}
-
-	var resData deleteLicenseSessionReqData
-	err = util.OpenJsonBox(&resData, res.Data, res.N, s.serverID, s.clientKey)
-	if err != nil {
-		return nil, err
-	}
-	return &resData, nil
+	url := fmt.Sprintf("%s/%s", s.url, base64.URLEncoding.EncodeToString(s.clientID))
+	return sendJsonRequest(ctx, http.MethodDelete, url, req, nil)
 }

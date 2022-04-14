@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/vk-rv/pvx"
 )
+
+var ErrInvalidToken = errors.New("invalid token")
 
 const TokenValidFor = 12 * time.Hour
 
@@ -64,10 +67,18 @@ func (t *TokenManager) issueToken(rand io.Reader, subject string, now time.Time,
 	return t.proto.Sign(t.sk, &claims)
 }
 
+// Returns ErrInvalidToken
 func (t *TokenManager) VerifyToken(token string) (subject string, err error) {
 	claims, err := t.verifyToken(token)
 	if err != nil {
-		return "", err
+		switch {
+		case errors.Is(err, pvx.ErrInvalidSignature):
+			return "", ErrInvalidToken
+		case errors.Is(err, pvx.ErrMalformedToken):
+			return "", ErrInvalidToken
+		default:
+			return "", err
+		}
 	}
 	return claims.Subject, nil
 }

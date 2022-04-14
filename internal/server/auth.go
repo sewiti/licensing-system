@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/apex/log"
 	"github.com/gorilla/mux"
 	"github.com/sewiti/licensing-system/internal/core"
 	"github.com/sewiti/licensing-system/internal/core/auth"
@@ -52,13 +53,16 @@ func withAPIAuth(c *core.Core, h apiAuthHandler) apiHandler {
 			li, err := c.AuthenticateToken(r.Context(), token)
 			if err != nil {
 				switch {
+				case errors.Is(err, auth.ErrInvalidToken):
+					return responseUnauthorized()
 				case errors.Is(err, core.ErrNotFound):
 					return responseUnauthorized()
 				case errors.Is(err, core.ErrUserInactive):
 					return responseUnauthorized()
 				default:
 					logError(err, "bearer-auth")
-					return responseInternalServerError()
+					return responseUnauthorized()
+					// return responseInternalServerError()
 				}
 			}
 			return h(r, li)
@@ -95,7 +99,8 @@ func createToken(c *core.Core) apiHandler {
 		Password string `json:"password"`
 	}
 	type createTokenRes struct {
-		Token string `json:"token"`
+		LicenseIssuerID int    `json:"licenseIssuerID"`
+		Token           string `json:"token"`
 	}
 
 	return func(r *http.Request) *apiResponse {
@@ -105,6 +110,7 @@ func createToken(c *core.Core) apiHandler {
 		if err != nil {
 			return responseBadRequest(err)
 		}
+		log.Info("create token")
 
 		li, err := c.AuthenticateBasic(r.Context(), req.Username, req.Password)
 		if err != nil {
@@ -128,7 +134,8 @@ func createToken(c *core.Core) apiHandler {
 			return responseInternalServerError()
 		}
 		return responseJson(http.StatusOK, createTokenRes{
-			Token: token,
+			LicenseIssuerID: li.ID,
+			Token:           token,
 		})
 	}
 }

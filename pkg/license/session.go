@@ -2,22 +2,21 @@ package license
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"time"
 )
 
 type session struct {
-	serverID  *[32]byte // Server Session ID
-	clientID  *[32]byte // Client Session ID
-	clientKey *[32]byte // Client Session Key
+	serverID  []byte // Server Session ID
+	clientID  []byte // Client Session ID
+	clientKey []byte // Client Session Key
 	url       string
 
 	refreshAfter time.Time
 	expireAfter  time.Time
 
-	data json.RawMessage
+	data []byte
 }
 
 func (s *session) updateTimes(now, remote, refreshAfter, expireAfter time.Time) {
@@ -35,7 +34,7 @@ func (s *session) refresh(ctx context.Context, rand io.Reader) error {
 }
 
 func (s *session) close(ctx context.Context, rand io.Reader) error {
-	_, err := s.sendClose(ctx, rand)
+	err := s.sendClose(ctx, rand)
 	if err != nil {
 		return fmt.Errorf("license: session-close: %w", err)
 	}
