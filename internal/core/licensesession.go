@@ -14,6 +14,7 @@ import (
 
 // Returns ErrTimeOutOfSync
 // Returns ErrLicenseExpired
+// Returns ErrLicenseInactive
 // Returns ErrRateLimitReached
 // Returns ErrLicenseIssuerDisabled
 // Returns SensitiveError
@@ -24,6 +25,9 @@ func (c *Core) NewLicenseSession(ctx context.Context, l *model.License, clientSe
 	now := time.Now()
 	if !c.timeInSync(now, clientTime) {
 		return nil, time.Time{}, ErrTimeOutOfSync
+	}
+	if !l.Active {
+		return nil, time.Time{}, ErrLicenseInactive
 	}
 	if l.ValidUntil != nil && l.ValidUntil.Before(now) {
 		return nil, time.Time{}, ErrLicenseExpired
@@ -90,6 +94,7 @@ func (c *Core) GetLicenseSession(ctx context.Context, clientSessionID []byte) (*
 
 // Returns ErrTimeOutOfSync
 // Returns ErrLicenseExpired
+// Returns ErrLicenseInactive
 // Returns ErrLicenseSessionExpired
 // Returns ErrNotFound
 // Returns SensitiveError
@@ -97,6 +102,9 @@ func (c *Core) UpdateLicenseSession(ctx context.Context, ls *model.LicenseSessio
 	now := time.Now()
 	if !c.timeInSync(now, clientTime) {
 		return time.Time{}, ErrTimeOutOfSync
+	}
+	if !l.Active {
+		return time.Time{}, ErrLicenseInactive
 	}
 	if l.ValidUntil != nil && l.ValidUntil.Before(now) {
 		return time.Time{}, ErrLicenseExpired

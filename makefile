@@ -21,9 +21,10 @@ install: build
 	cp -f ./licensing-server.service /etc/systemd/system/licensing-server.service
 	systemctl daemon-reload
 
-	[ -s /opt/licensing-server/.env ] || {                             \
-	    echo -n "LICENSING_SERVER_KEY=" > /opt/licensing-server/.env;  \
-	    /opt/licensing-server/licensing-server generate-keys -base64 | \
-	        grep ^key | cut -d: -f3 >> /opt/licensing-server/.env;     \
+	[ -f /opt/licensing-server/.env ] || {                                                        \
+	    /opt/licensing-server/licensing-server generate-keys > /opt/licensing-server/keys;        \
+	    echo -n LICENSING_SERVER_KEY= >> /opt/licensing-server/.env;                              \
+		grep ^key:base64: /opt/licensing-server/keys | cut -d: -f3 >> /opt/licensing-server/.env; \
 	}
+	[ ! -f /opt/licensing-server/keys ] || chmod 600 /opt/licensing-server/keys
 	chmod 600 /opt/licensing-server/.env

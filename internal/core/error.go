@@ -12,6 +12,7 @@ var (
 
 	// License errors
 	ErrLicenseExpired        = errors.New("license has expired")
+	ErrLicenseInactive       = errors.New("license is inactive")
 	ErrLicenseSessionExpired = errors.New("license session has expired")
 
 	// License session errors

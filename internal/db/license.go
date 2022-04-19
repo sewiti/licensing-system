@@ -16,6 +16,7 @@ func (h *Handler) InsertLicense(ctx context.Context, l *model.License) error {
 		SetMap(map[string]interface{}{
 			"id":             l.ID,
 			"key":            l.Key,
+			"active":         l.Active,
 			"name":           l.Name,
 			"tags":           pq.Array(l.Tags),
 			"end_user_email": l.EndUserEmail,
@@ -71,6 +72,7 @@ func (h *Handler) selectLicenses(ctx context.Context, action string, d selectDec
 	sq := h.sq.Select(
 		"id",
 		"key",
+		"active",
 		"name",
 		"tags",
 		"end_user_email",
@@ -96,6 +98,7 @@ func (h *Handler) selectLicenses(ctx context.Context, action string, d selectDec
 		err = rows.Scan(
 			&l.ID,
 			&l.Key,
+			&l.Active,
 			&l.Name,
 			pq.Array(&l.Tags),
 			&l.EndUserEmail,

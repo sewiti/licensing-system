@@ -7,6 +7,7 @@ import (
 type License struct {
 	ID           []byte     `json:"id"`
 	Key          []byte     `json:"key"`
+	Active       bool       `json:"active"`
 	Name         string     `json:"name"`
 	Tags         []string   `json:"tags"`
 	EndUserEmail string     `json:"endUserEmail"`

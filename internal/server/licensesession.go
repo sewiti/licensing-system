@@ -83,6 +83,8 @@ func licCreateLicenseSession(c *core.Core) apiHandler {
 				return responseForbidden(err)
 			case errors.Is(err, core.ErrLicenseExpired):
 				return responseForbidden(err)
+			case errors.Is(err, core.ErrLicenseInactive):
+				return responseForbidden(err)
 			case errors.Is(err, core.ErrRateLimitReached):
 				return responseConflict(err)
 			default:
@@ -178,6 +180,8 @@ func licUpdateLicenseSession(c *core.Core) apiHandler {
 			case errors.Is(err, core.ErrTimeOutOfSync):
 				return responseForbidden(err)
 			case errors.Is(err, core.ErrLicenseExpired):
+				return responseForbidden(err)
+			case errors.Is(err, core.ErrLicenseInactive):
 				return responseForbidden(err)
 			case errors.Is(err, core.ErrLicenseSessionExpired):
 				return responseForbidden(err)

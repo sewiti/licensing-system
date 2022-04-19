@@ -49,6 +49,7 @@ func (c *Core) NewLicense(ctx context.Context, li *model.LicenseIssuer, req *mod
 	l := &model.License{
 		ID:           id,
 		Key:          key,
+		Active:       req.Active,
 		Name:         req.Name,
 		Tags:         req.Tags,
 		EndUserEmail: req.EndUserEmail,
@@ -85,6 +86,9 @@ func (c *Core) UpdateLicense(ctx context.Context, l *model.License, changes map[
 		"updated": time.Now(),
 	}
 
+	if _, ok := changes["active"]; ok {
+		update["active"] = l.Active
+	}
 	if _, ok := changes["name"]; ok {
 		if !ValidLicenseName(l.Name) {
 			return fmt.Errorf("%w name", ErrInvalidInput)
@@ -137,5 +141,5 @@ func (c *Core) DeleteLicense(ctx context.Context, licenseID []byte, licenseIssue
 }
 
 func (c *Core) AuthorizeLicenseUpdate(login *model.LicenseIssuer) (updateMask []string, delete bool) {
-	return []string{"name", "tags", "endUserEmail", "note", "data", "maxSessions", "validUntil"}, true
+	return []string{"active", "name", "tags", "endUserEmail", "note", "data", "maxSessions", "validUntil"}, true
 }

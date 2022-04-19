@@ -20,6 +20,7 @@ func createLicense(c *core.Core) apiAuthHandler {
 		}
 
 		req := model.License{ // only a handful of fields will be used
+			Active:      true,
 			MaxSessions: 1,
 		}
 		err = jsonDecodeLim(r.Body, &req)
