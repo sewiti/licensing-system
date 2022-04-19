@@ -2,8 +2,13 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"net/http"
+	"path"
+	"path/filepath"
 
 	"github.com/apex/log"
 )
@@ -112,4 +117,41 @@ func responseInternalServerError() *apiResponse {
 		statusCode: http.StatusInternalServerError,
 		body:       []byte("500 Internal Server Error"),
 	}
+}
+
+func spaHandler(public fs.FS, root string) http.Handler {
+	open := func(path string) (fs.File, error) {
+		f, err := public.Open(filepath.Join(root, path))
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return public.Open(filepath.Join(root, "index.html"))
+			}
+			return nil, err
+		}
+		fi, err := f.Stat()
+		if err != nil {
+			_ = f.Close()
+			return nil, err
+		}
+		if fi.IsDir() {
+			_ = f.Close()
+			return public.Open(filepath.Join(root, "index.html"))
+		}
+		return f, nil
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p := path.Clean(r.URL.Path)
+		f, err := open(p)
+		if err != nil {
+			log.WithError(err).WithField("path", p).Error("serving spa, opening file")
+			responseInternalServerError().Write(w)
+			return
+		}
+		defer f.Close()
+		_, err = io.Copy(w, f)
+		if err != nil {
+			log.WithError(err).WithField("path", p).Error("serving spa")
+		}
+	})
 }

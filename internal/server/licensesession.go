@@ -258,9 +258,10 @@ func licDeleteLicenseSession(c *core.Core) apiHandler {
 			switch {
 			case errors.Is(err, core.ErrNotFound):
 				return responseNotFound()
+			default:
+				logError(err, scope)
+				return responseInternalServerError()
 			}
-			logError(err, scope)
-			return responseInternalServerError()
 		}
 		return responseNoContent()
 	}
@@ -366,9 +367,10 @@ func deleteLicenseSession(c *core.Core) apiAuthHandler {
 			switch {
 			case errors.Is(err, core.ErrNotFound):
 				return responseNotFound()
+			default:
+				logError(err, scope)
+				return responseInternalServerError()
 			}
-			logError(err, scope)
-			return responseInternalServerError()
 		}
 		return responseNoContent()
 	}

@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apex/log"
 	"github.com/gorilla/mux"
 	"github.com/sewiti/licensing-system/internal/core"
 	"github.com/sewiti/licensing-system/internal/core/auth"
@@ -110,7 +109,6 @@ func createToken(c *core.Core) apiHandler {
 		if err != nil {
 			return responseBadRequest(err)
 		}
-		log.Info("create token")
 
 		li, err := c.AuthenticateBasic(r.Context(), req.Username, req.Password)
 		if err != nil {

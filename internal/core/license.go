@@ -69,7 +69,7 @@ func (c *Core) NewLicense(ctx context.Context, li *model.LicenseIssuer, req *mod
 // Returns SensitiveError
 func (c *Core) GetAllLicensesByIssuer(ctx context.Context, licenseIssuerID int) ([]*model.License, error) {
 	ll, err := c.db.SelectAllLicensesByIssuerID(ctx, licenseIssuerID)
-	return ll, handleErrDB(err, "getting all licenses")
+	return ll, handleErrDB(err, "getting all licenses by issuer")
 }
 
 // Returns ErrNotFound

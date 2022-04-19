@@ -1,6 +1,7 @@
 package server
 
 import (
+	"embed"
 	"encoding/base64"
 	"errors"
 	"net/http"
@@ -8,6 +9,9 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sewiti/licensing-system/internal/core"
 )
+
+//go:embed public/*
+var publicDir embed.FS
 
 func NewRouter(c *core.Core, resourceApiCors, licensingCors bool, allowedOrigins []string) *mux.Router {
 	corsOriginMiddleware := corsOriginMiddleware(allowedOrigins)
@@ -67,7 +71,7 @@ func NewRouter(c *core.Core, resourceApiCors, licensingCors bool, allowedOrigins
 	resourceHandler(api, "/change-password/{LICENSE_ISSUER_ID:[0-9]+}", http.MethodPatch, withAPIAuthorized(updatePassword(c)))
 
 	// Single page app
-	// TODO
+	r.PathPrefix("/").Handler(spaHandler(publicDir, "public"))
 
 	return r
 }

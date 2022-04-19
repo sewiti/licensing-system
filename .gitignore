@@ -18,7 +18,7 @@
 !.env.example
 !licensing-server.service
 
-# !Makefile
+!**/public/**
 
 # ...even if they are in subdirectories
 !*/

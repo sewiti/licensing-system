@@ -13,10 +13,6 @@ func CLILogin() *model.LicenseIssuer {
 	return &model.LicenseIssuer{ID: -1}
 }
 
-var licenseIssuerRemap = map[string]string{
-	"maxLicenses": "max_licenses",
-}
-
 // Returns ErrInvalidInput
 // Returns ErrPasswdTooWeak
 // Returns ErrDuplicate

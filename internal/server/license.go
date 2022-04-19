@@ -200,9 +200,10 @@ func deleteLicense(c *core.Core) apiAuthHandler {
 			switch {
 			case errors.Is(err, core.ErrNotFound):
 				return responseNotFound()
+			default:
+				logError(err, scope)
+				return responseInternalServerError()
 			}
-			logError(err, scope)
-			return responseInternalServerError()
 		}
 		return responseNoContent()
 	}
