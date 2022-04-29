@@ -58,6 +58,7 @@ func runServer() error {
 		Refresh:          core.RefreshConf(cfg.Licensing.Refresh),
 		MaxTimeDrift:     cfg.Licensing.MaxTimeDrift,
 		MinPasswdEntropy: cfg.MinPasswdEntropy,
+		UseGUI:           !cfg.DisableGUI,
 	}
 	c, err := core.NewCore(db, cfg.Licensing.ServerKey, time.Now(), conf)
 	if err != nil {

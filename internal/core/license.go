@@ -38,7 +38,7 @@ func (c *Core) NewLicense(ctx context.Context, li *model.LicenseIssuer, req *mod
 		return nil, handleErrDB(err, "counting licenses")
 	}
 	if !li.MaxLicenses.Allows(count + 1) {
-		return nil, fmt.Errorf("max sessions: %w", ErrExceedsLimit)
+		return nil, fmt.Errorf("max licenses: %w", ErrExceedsLimit)
 	}
 
 	id, key, err := util.GenerateKey(cryptorand.Reader)
@@ -61,6 +61,7 @@ func (c *Core) NewLicense(ctx context.Context, li *model.LicenseIssuer, req *mod
 		Updated:      now,
 		LastUsed:     nil,
 		IssuerID:     li.ID,
+		ProductID:    req.ProductID,
 	}
 	err = c.db.InsertLicense(ctx, l)
 	return l, handleErrDB(err, "creating license")
@@ -141,5 +142,5 @@ func (c *Core) DeleteLicense(ctx context.Context, licenseID []byte, licenseIssue
 }
 
 func (c *Core) AuthorizeLicenseUpdate(login *model.LicenseIssuer) (updateMask []string, delete bool) {
-	return []string{"active", "name", "tags", "endUserEmail", "note", "data", "maxSessions", "validUntil"}, true
+	return []string{"active", "name", "tags", "endUserEmail", "note", "data", "maxSessions", "validUntil", "productID"}, true
 }

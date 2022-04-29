@@ -94,6 +94,10 @@ func (c *Client) newSession(ctx context.Context) (*session, error) {
 		clientID:  clientID,
 		clientKey: clientKey,
 		url:       c.url,
+
+		productName: data.ProductName,
+		productData: data.ProductData,
+		data:        data.Data,
 	}
 	s.updateTimes(time.Now(), data.Timestamp, data.RefreshAfter, data.ExpireAfter)
 	return s, nil
@@ -119,8 +123,8 @@ func (c *Client) Run(ctx context.Context, maxRefresh time.Duration, cb SessionCa
 		if err == nil {
 			c.session = s
 			c.state = StateValid
-			cb.call("created license session", nil)
 			c.mx.Unlock()
+			cb.call("created license session", nil)
 			retryDelay = retryIn
 			break
 		}
@@ -128,13 +132,13 @@ func (c *Client) Run(ctx context.Context, maxRefresh time.Duration, cb SessionCa
 
 		if !errors.Is(err, errTemporary) {
 			// Error
-			cb.call("creating license session", err)
 			c.mx.Unlock()
+			cb.call("creating license session", err)
 			return
 		}
 		// Temporary error - schedule a retry
-		cb.call(fmt.Sprintf("creating license session, retrying in %v", retryDelay), err)
 		c.mx.Unlock()
+		cb.call(fmt.Sprintf("creating license session, retrying in %v", retryDelay), err)
 
 		select {
 		case <-time.After(retryDelay):
@@ -167,8 +171,8 @@ func (c *Client) Run(ctx context.Context, maxRefresh time.Duration, cb SessionCa
 			err := c.session.refresh(ctx, cryptorand.Reader)
 			if err == nil {
 				c.state = StateValid
-				cb.call("license session refreshed successfully", nil)
 				c.mx.Unlock()
+				cb.call("license session refreshed successfully", nil)
 				retryDelay = retryIn // Reset delay
 				continue
 			}
@@ -177,8 +181,8 @@ func (c *Client) Run(ctx context.Context, maxRefresh time.Duration, cb SessionCa
 				// Error
 				c.session = nil
 				c.state = StateClosed
-				cb.call("refreshing license session", err)
 				c.mx.Unlock()
+				cb.call("refreshing license session", err)
 				return
 			}
 			// Temporary error - schedule a retry
@@ -187,8 +191,8 @@ func (c *Client) Run(ctx context.Context, maxRefresh time.Duration, cb SessionCa
 			if retryDelay > maxRefresh {
 				retryDelay = maxRefresh
 			}
-			cb.call(fmt.Sprintf("refreshing license session, retrying in %v", retryDelay), err)
 			c.mx.Unlock()
+			cb.call(fmt.Sprintf("refreshing license session, retrying in %v", retryDelay), err)
 
 			retryDelay *= 2
 			if retryDelay > retryInMax {
@@ -201,8 +205,8 @@ func (c *Client) Run(ctx context.Context, maxRefresh time.Duration, cb SessionCa
 			c.mx.Lock()
 			// No need for sending any request
 			c.state = StateExpired
-			cb.call("license session has expired", nil)
 			c.mx.Unlock()
+			cb.call("license session has expired", nil)
 			return
 
 		case <-ctx.Done(): // App closed
@@ -215,13 +219,13 @@ func (c *Client) Run(ctx context.Context, maxRefresh time.Duration, cb SessionCa
 			err := c.session.close(ctx, cryptorand.Reader)
 			c.session = nil // Get rid of session
 			c.state = StateClosed
+			c.mx.Unlock()
 			if err != nil {
 				cb.call("closing license session", err)
 				// Continue on error
 			} else {
 				cb.call("license session closed successfully", nil)
 			}
-			c.mx.Unlock()
 			return
 		}
 	}
@@ -251,6 +255,35 @@ func (c *Client) UnmarshalData(v interface{}) error {
 		return ErrNotConnected
 	}
 	return json.Unmarshal(c.session.data, v)
+}
+
+func (c *Client) ProductName() (string, error) {
+	c.mx.RLock()
+	defer c.mx.RUnlock()
+	if c.session == nil {
+		return "", ErrNotConnected
+	}
+	return c.session.productName, nil
+}
+
+func (c *Client) ProductData() ([]byte, error) {
+	c.mx.RLock()
+	defer c.mx.RUnlock()
+	if c.session == nil {
+		return nil, ErrNotConnected
+	}
+	data := make([]byte, len(c.session.productData))
+	copy(data, c.session.productData)
+	return data, nil
+}
+
+func (c *Client) UnmarshalProductData(v interface{}) error {
+	c.mx.RLock()
+	defer c.mx.RUnlock()
+	if c.session == nil {
+		return ErrNotConnected
+	}
+	return json.Unmarshal(c.session.productData, v)
 }
 
 type SessionCallback func(msg string, err error)

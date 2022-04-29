@@ -39,6 +39,8 @@ type createLicenseSessionResData struct {
 	RefreshAfter    time.Time `json:"refresh"`
 	ExpireAfter     time.Time `json:"expire"`
 	Data            []byte    `json:"data,omitempty"`
+	ProductName     string    `json:"productName"`
+	ProductData     []byte    `json:"productData,omitempty"`
 }
 
 type updateLicenseSessionReq struct {
@@ -60,6 +62,8 @@ type updateLicenseSessionResData struct {
 	RefreshAfter time.Time `json:"refresh"`
 	ExpireAfter  time.Time `json:"expire"`
 	Data         []byte    `json:"data,omitempty"`
+	ProductName  string    `json:"productName"`
+	ProductData  []byte    `json:"productData,omitempty"`
 }
 
 type deleteLicenseSessionReq struct {

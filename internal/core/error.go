@@ -15,6 +15,9 @@ var (
 	ErrLicenseInactive       = errors.New("license is inactive")
 	ErrLicenseSessionExpired = errors.New("license session has expired")
 
+	// Product errors
+	ErrProductInactive = errors.New("product is inactive")
+
 	// License session errors
 	ErrRateLimitReached = errors.New("rate limit has been reached")
 	ErrTimeOutOfSync    = errors.New("time out of sync")

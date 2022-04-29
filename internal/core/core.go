@@ -22,6 +22,7 @@ type Core struct {
 	tm  *auth.TokenManager
 
 	minPasswdEntropy float64
+	useGui           bool
 
 	refresh      RefreshConf
 	maxTimeDrift time.Duration
@@ -36,6 +37,7 @@ type RefreshConf struct {
 type LicensingConf struct {
 	MaxTimeDrift     time.Duration
 	MinPasswdEntropy float64
+	UseGUI           bool
 
 	Limiter LimiterConf
 	Refresh RefreshConf
@@ -74,6 +76,7 @@ func NewCore(db *db.Handler, serverKey []byte, now time.Time, cfg LicensingConf)
 		tm: tm,
 
 		minPasswdEntropy: cfg.MinPasswdEntropy,
+		useGui:           cfg.UseGUI,
 
 		refresh:      cfg.Refresh,
 		maxTimeDrift: cfg.MaxTimeDrift,
@@ -90,4 +93,8 @@ func (c *Core) ServerKey() []byte {
 	key := make([]byte, 32)
 	copy(key, c.serverKey[:])
 	return key
+}
+
+func (c *Core) UseGUI() bool {
+	return c.useGui
 }

@@ -61,6 +61,12 @@ func NewRouter(c *core.Core, resourceApiCors, licensingCors bool, allowedOrigins
 	resourceHandler(apili, "/licenses/{LICENSE_ID:[A-Za-z0-9_-]{43}=}", http.MethodPatch, withAPIAuthorized(updateLicense(c)))
 	resourceHandler(apili, "/licenses/{LICENSE_ID:[A-Za-z0-9_-]{43}=}", http.MethodDelete, withAPIAuthorized(deleteLicense(c)))
 
+	resourceHandler(apili, "/products", http.MethodPost, withAPIAuthorized(createProduct(c)))
+	resourceHandler(apili, "/products", http.MethodGet, withAPIAuthorized(getAllProducts(c)))
+	resourceHandler(apili, "/products/{PRODUCT_ID:[0-9]+}", http.MethodGet, withAPIAuthorized(getProduct(c)))
+	resourceHandler(apili, "/products/{PRODUCT_ID:[0-9]+}", http.MethodPatch, withAPIAuthorized(updateProduct(c)))
+	resourceHandler(apili, "/products/{PRODUCT_ID:[0-9]+}", http.MethodDelete, withAPIAuthorized(deleteProduct(c)))
+
 	apilil := apili.PathPrefix("/licenses/{LICENSE_ID:[A-Za-z0-9_-]{43}=}").Subrouter()
 	resourceHandler(apilil, "/sessions", http.MethodGet, withAPIAuthorized(getAllLicenseSessions(c)))
 	resourceHandler(apilil, "/sessions/{CLIENT_SESSION_ID:[A-Za-z0-9_-]{43}=}", http.MethodGet, withAPIAuthorized(getLicenseSession(c)))
@@ -71,7 +77,9 @@ func NewRouter(c *core.Core, resourceApiCors, licensingCors bool, allowedOrigins
 	resourceHandler(api, "/change-password/{LICENSE_ISSUER_ID:[0-9]+}", http.MethodPatch, withAPIAuthorized(updatePassword(c)))
 
 	// Single page app
-	r.PathPrefix("/").Handler(spaHandler(publicDir, "public"))
+	if c.UseGUI() {
+		r.PathPrefix("/").Handler(spaHandler(publicDir, "public"))
+	}
 
 	return r
 }

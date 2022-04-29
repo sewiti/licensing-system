@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/apex/log"
 )
@@ -149,6 +150,12 @@ func spaHandler(public fs.FS, root string) http.Handler {
 			return
 		}
 		defer f.Close()
+		switch {
+		case strings.HasSuffix(p, ".js"):
+			w.Header().Set("Content-Type", "text/javascript")
+		case strings.HasSuffix(p, ".css"):
+			w.Header().Set("Content-Type", "text/css")
+		}
 		_, err = io.Copy(w, f)
 		if err != nil {
 			log.WithError(err).WithField("path", p).Error("serving spa")

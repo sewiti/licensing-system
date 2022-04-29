@@ -19,4 +19,5 @@ type License struct {
 	Updated      time.Time  `json:"updated"`
 	LastUsed     *time.Time `json:"lastUsed"`
 	IssuerID     int        `json:"-"`
+	ProductID    *int       `json:"productID"`
 }

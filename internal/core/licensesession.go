@@ -15,39 +15,51 @@ import (
 // Returns ErrTimeOutOfSync
 // Returns ErrLicenseExpired
 // Returns ErrLicenseInactive
+// Returns ErrProductInactive
 // Returns ErrRateLimitReached
 // Returns ErrLicenseIssuerDisabled
 // Returns SensitiveError
-func (c *Core) NewLicenseSession(ctx context.Context, l *model.License, clientSessionID []byte, identifier string, machineID []byte, appVersion string, clientTime time.Time) (ls *model.LicenseSession, refresh time.Time, err error) {
+func (c *Core) NewLicenseSession(ctx context.Context, l *model.License, clientSessionID []byte, identifier string, machineID []byte, appVersion string, clientTime time.Time) (ls *model.LicenseSession, p *model.Product, refresh time.Time, err error) {
 	if len(clientSessionID) != 32 {
-		return nil, time.Time{}, fmt.Errorf("%w client session id", ErrInvalidInput)
+		return nil, nil, time.Time{}, fmt.Errorf("%w client session id", ErrInvalidInput)
 	}
 	now := time.Now()
 	if !c.timeInSync(now, clientTime) {
-		return nil, time.Time{}, ErrTimeOutOfSync
+		return nil, nil, time.Time{}, ErrTimeOutOfSync
 	}
 	if !l.Active {
-		return nil, time.Time{}, ErrLicenseInactive
+		return nil, nil, time.Time{}, ErrLicenseInactive
 	}
 	if l.ValidUntil != nil && l.ValidUntil.Before(now) {
-		return nil, time.Time{}, ErrLicenseExpired
+		return nil, nil, time.Time{}, ErrLicenseExpired
 	}
 	rl := c.lim.get(l)
 	if !rl.Allow() {
-		return nil, time.Time{}, ErrRateLimitReached
+		return nil, nil, time.Time{}, ErrRateLimitReached
 	}
 	li, err := c.GetLicenseIssuer(ctx, l.IssuerID)
 	if err != nil {
-		return nil, time.Time{}, err
+		return nil, nil, time.Time{}, err
 	}
 	if !li.Active {
-		return nil, time.Time{}, ErrLicenseIssuerDisabled
+		return nil, nil, time.Time{}, ErrLicenseIssuerDisabled
+	}
+	if l.ProductID != nil {
+		p, err = c.GetProduct(ctx, *l.ProductID)
+		if err != nil {
+			return nil, nil, time.Time{}, err
+		}
+		if !p.Active {
+			return nil, nil, time.Time{}, ErrProductInactive
+		}
+	} else {
+		p = &model.Product{}
 	}
 	// Max sessions are taken care of by the cleanup routine.
 
 	serverID, serverKey, err := util.GenerateKey(cryptorand.Reader)
 	if err != nil {
-		return nil, time.Time{}, err
+		return nil, nil, time.Time{}, err
 	}
 
 	refresh, expiry := c.calcLicenseSessionTimes(now, now)
@@ -73,10 +85,10 @@ func (c *Core) NewLicenseSession(ctx context.Context, l *model.License, clientSe
 	})
 	err = handleErrDB(err, "updating license")
 	if err != nil {
-		return nil, time.Time{}, err
+		return nil, nil, time.Time{}, err
 	}
 	err = c.db.InsertLicenseSession(ctx, s)
-	return s, refresh, handleErrDB(err, "creating license session")
+	return s, p, refresh, handleErrDB(err, "creating license session")
 }
 
 // Returns SensitiveError
@@ -95,22 +107,42 @@ func (c *Core) GetLicenseSession(ctx context.Context, clientSessionID []byte) (*
 // Returns ErrTimeOutOfSync
 // Returns ErrLicenseExpired
 // Returns ErrLicenseInactive
+// Returns ErrProductInactive
+// Returns ErrLicenseIssuerDisabled
 // Returns ErrLicenseSessionExpired
 // Returns ErrNotFound
 // Returns SensitiveError
-func (c *Core) UpdateLicenseSession(ctx context.Context, ls *model.LicenseSession, l *model.License, clientTime time.Time) (refresh time.Time, err error) {
+func (c *Core) UpdateLicenseSession(ctx context.Context, ls *model.LicenseSession, l *model.License, clientTime time.Time) (p *model.Product, refresh time.Time, err error) {
 	now := time.Now()
 	if !c.timeInSync(now, clientTime) {
-		return time.Time{}, ErrTimeOutOfSync
+		return nil, time.Time{}, ErrTimeOutOfSync
 	}
 	if !l.Active {
-		return time.Time{}, ErrLicenseInactive
+		return nil, time.Time{}, ErrLicenseInactive
 	}
 	if l.ValidUntil != nil && l.ValidUntil.Before(now) {
-		return time.Time{}, ErrLicenseExpired
+		return nil, time.Time{}, ErrLicenseExpired
 	}
 	if now.After(ls.Expire) {
-		return time.Time{}, ErrLicenseSessionExpired
+		return nil, time.Time{}, ErrLicenseSessionExpired
+	}
+	li, err := c.GetLicenseIssuer(ctx, l.IssuerID)
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+	if !li.Active {
+		return nil, time.Time{}, ErrLicenseIssuerDisabled
+	}
+	if l.ProductID != nil {
+		p, err = c.GetProduct(ctx, *l.ProductID)
+		if err != nil {
+			return nil, time.Time{}, err
+		}
+		if !p.Active {
+			return nil, time.Time{}, ErrProductInactive
+		}
+	} else {
+		p = &model.Product{}
 	}
 	// Max sessions are taken care of by the cleanup routine.
 
@@ -118,7 +150,7 @@ func (c *Core) UpdateLicenseSession(ctx context.Context, ls *model.LicenseSessio
 	ls.Expire = expiry
 
 	err = c.db.UpdateLicenseSession(ctx, ls)
-	return refresh, handleErrDB(err, "updating license session")
+	return p, refresh, handleErrDB(err, "updating license session")
 }
 
 // Returns ErrNotFound

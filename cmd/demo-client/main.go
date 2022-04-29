@@ -59,7 +59,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	wg.Add(n)
+	wg.Add(2 * n)
 	for i := 0; i < n; i++ {
 		cl, err := license.NewClient(url, serverID, machineID, licenseKey)
 		if err != nil {
@@ -75,6 +75,35 @@ func main() {
 				}
 				log.Infof("%d: %s", i, msg)
 			})
+		}(i)
+
+		go func(i int) {
+			defer wg.Done()
+			t := time.NewTicker(maxRefresh)
+			defer t.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-t.C:
+					productName, err := cl.ProductName()
+					if err != nil {
+						log.WithError(err).Errorf("%d: state: %v", i, cl.State())
+						continue
+					}
+					productData, err := cl.ProductData()
+					if err != nil {
+						log.WithError(err).Errorf("%d: state: %v", i, cl.State())
+						continue
+					}
+					data, err := cl.Data()
+					if err != nil {
+						log.WithError(err).Errorf("%d: state: %v", i, cl.State())
+						continue
+					}
+					log.Infof("%d: state: %v; product-name: %s; product-data: %s; license-data: %s", i, cl.State(), productName, productData, data)
+				}
+			}
 		}(i)
 	}
 	<-ctx.Done()

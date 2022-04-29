@@ -114,3 +114,8 @@ func ValidPhoneNumber(phoneNumber string) bool {
 		return true
 	}
 }
+
+func ValidProductName(name string) bool {
+	const maxLen = 64
+	return len(name) <= maxLen
+}

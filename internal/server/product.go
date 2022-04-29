@@ -11,24 +11,21 @@ import (
 	"github.com/sewiti/licensing-system/internal/model"
 )
 
-func createLicense(c *core.Core) apiAuthHandler {
+func createProduct(c *core.Core) apiAuthHandler {
 	return func(r *http.Request, login *model.LicenseIssuer) *apiResponse {
-		const scope = "create license"
+		const scope = "create product"
 		licenseIssuerID, err := strconv.Atoi(mux.Vars(r)["LICENSE_ISSUER_ID"])
 		if err != nil {
 			return responseBadRequestf("license issuer id: %v", err)
 		}
 
-		req := model.License{ // only a handful of fields will be used
-			Active:      true,
-			MaxSessions: 1,
+		req := model.Product{
+			Active:   true,
+			IssuerID: licenseIssuerID,
 		}
 		err = jsonDecodeLim(r.Body, &req)
 		if err != nil {
 			return responseBadRequest(err)
-		}
-		if req.Tags == nil {
-			req.Tags = make([]string, 0)
 		}
 
 		li, err := c.GetLicenseIssuer(r.Context(), licenseIssuerID)
@@ -42,25 +39,23 @@ func createLicense(c *core.Core) apiAuthHandler {
 			}
 		}
 
-		l, err := c.NewLicense(r.Context(), li, &req)
+		p, err := c.NewProduct(r.Context(), li, &req)
 		if err != nil {
 			switch {
 			case errors.Is(err, core.ErrInvalidInput):
-				return responseBadRequest(err)
-			case errors.Is(err, core.ErrExceedsLimit):
 				return responseBadRequest(err)
 			default:
 				logError(err, scope)
 				return responseInternalServerError()
 			}
 		}
-		return responseJson(http.StatusCreated, l)
+		return responseJson(http.StatusCreated, p)
 	}
 }
 
-func getAllLicenses(c *core.Core) apiAuthHandler {
+func getAllProducts(c *core.Core) apiAuthHandler {
 	return func(r *http.Request, login *model.LicenseIssuer) *apiResponse {
-		const scope = "get all licenses"
+		const scope = "get all products"
 		licenseIssuerID, err := strconv.Atoi(mux.Vars(r)["LICENSE_ISSUER_ID"])
 		if err != nil {
 			return responseBadRequestf("license issuer id: %v", err)
@@ -77,32 +72,32 @@ func getAllLicenses(c *core.Core) apiAuthHandler {
 			}
 		}
 
-		ll, err := c.GetAllLicensesByIssuer(r.Context(), licenseIssuerID)
+		pp, err := c.GetAllProductsByIssuer(r.Context(), licenseIssuerID)
 		if err != nil {
 			logError(err, scope)
 			return responseInternalServerError()
 		}
-		if ll == nil {
-			ll = make([]*model.License, 0) // Force empty array json
+		if pp == nil {
+			pp = make([]*model.Product, 0)
 		}
-		return responseJson(http.StatusOK, ll)
+		return responseJson(http.StatusOK, pp)
 	}
 }
 
-func getLicense(c *core.Core) apiAuthHandler {
+func getProduct(c *core.Core) apiAuthHandler {
 	return func(r *http.Request, login *model.LicenseIssuer) *apiResponse {
-		const scope = "get license"
+		const scope = "get product"
 		vars := mux.Vars(r)
 		licenseIssuerID, err := strconv.Atoi(vars["LICENSE_ISSUER_ID"])
 		if err != nil {
 			return responseBadRequestf("license issuer id: %v", err)
 		}
-		licenseID, err := pathVarKey(vars["LICENSE_ID"])
+		productID, err := strconv.Atoi(vars["PRODUCT_ID"])
 		if err != nil {
-			return responseBadRequestf("license id: %v", err)
+			return responseBadRequestf("product id: %v", err)
 		}
 
-		l, err := c.GetLicense(r.Context(), licenseID)
+		p, err := c.GetProduct(r.Context(), productID)
 		if err != nil {
 			switch {
 			case errors.Is(err, core.ErrNotFound):
@@ -112,35 +107,35 @@ func getLicense(c *core.Core) apiAuthHandler {
 				return responseInternalServerError()
 			}
 		}
-		if licenseIssuerID != l.IssuerID {
+		if licenseIssuerID != p.IssuerID {
 			return responseNotFound()
 		}
-		return responseJson(http.StatusOK, l)
+		return responseJson(http.StatusOK, p)
 	}
 }
 
-func updateLicense(c *core.Core) apiAuthHandler {
+func updateProduct(c *core.Core) apiAuthHandler {
 	return func(r *http.Request, login *model.LicenseIssuer) *apiResponse {
-		const scope = "update license"
+		const scope = "update product"
 		vars := mux.Vars(r)
 		licenseIssuerID, err := strconv.Atoi(vars["LICENSE_ISSUER_ID"])
 		if err != nil {
 			return responseBadRequestf("license issuer id: %v", err)
 		}
-		licenseID, err := pathVarKey(vars["LICENSE_ID"])
+		productID, err := strconv.Atoi(vars["PRODUCT_ID"])
 		if err != nil {
-			return responseBadRequestf("license id: %v", err)
+			return responseBadRequestf("product id: %v", err)
 		}
 
 		data, err := readAllLim(r.Body)
 		if err != nil {
 			return responseBadRequest(err)
 		}
-		l := &model.License{
-			ID:       licenseID,
+		p := &model.Product{
+			ID:       productID,
 			IssuerID: licenseIssuerID,
 		}
-		err = json.Unmarshal(data, l)
+		err = json.Unmarshal(data, p)
 		if err != nil {
 			return responseBadRequest(err)
 		}
@@ -149,15 +144,14 @@ func updateLicense(c *core.Core) apiAuthHandler {
 		if err != nil {
 			return responseBadRequest(err) // should never happen
 		}
-		mask, _ := c.AuthorizeLicenseUpdate(login)
+		mask, _ := c.AuthorizeProductUpdate(login)
 		field, ok := core.ChangesInMask(changes, mask)
 		if !ok {
 			return responseBadRequestf("unauthorized to change field: %s", field)
 		}
 
-		err = c.UpdateLicense(r.Context(), l, changes)
+		err = c.UpdateProduct(r.Context(), p, changes)
 		if err != nil {
-			// TODO
 			switch {
 			case errors.Is(err, core.ErrInvalidInput):
 				return responseBadRequest(err)
@@ -167,38 +161,38 @@ func updateLicense(c *core.Core) apiAuthHandler {
 			}
 		}
 
-		l, err = c.GetLicense(r.Context(), licenseID)
+		p, err = c.GetProduct(r.Context(), productID)
 		if err != nil {
 			switch {
 			case errors.Is(err, core.ErrNotFound):
-				return responseNotFound() // should never happen
+				return responseNotFound()
 			default:
 				logError(err, scope)
 				return responseInternalServerError()
 			}
 		}
-		return responseJson(http.StatusOK, l)
+		return responseJson(http.StatusOK, p)
 	}
 }
 
-func deleteLicense(c *core.Core) apiAuthHandler {
+func deleteProduct(c *core.Core) apiAuthHandler {
 	return func(r *http.Request, login *model.LicenseIssuer) *apiResponse {
-		const scope = "delete license"
+		const scope = "delete product"
 		vars := mux.Vars(r)
 		licenseIssuerID, err := strconv.Atoi(vars["LICENSE_ISSUER_ID"])
 		if err != nil {
 			return responseBadRequestf("license issuer id: %v", err)
 		}
-		licenseID, err := pathVarKey(vars["LICENSE_ID"])
+		productID, err := strconv.Atoi(vars["PRODUCT_ID"])
 		if err != nil {
-			return responseBadRequestf("license id: %v", err)
+			return responseBadRequestf("product id: %v", err)
 		}
 
-		_, canDelete := c.AuthorizeLicenseUpdate(login)
+		_, canDelete := c.AuthorizeProductUpdate(login)
 		if !canDelete {
 			return responseForbidden()
 		}
-		err = c.DeleteLicense(r.Context(), licenseID, licenseIssuerID)
+		err = c.DeleteProduct(r.Context(), productID, licenseIssuerID)
 		if err != nil {
 			switch {
 			case errors.Is(err, core.ErrNotFound):

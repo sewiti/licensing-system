@@ -47,4 +47,6 @@ type config struct {
 
 	InternalSocket   string  `envconfig:"default=/run/licensing-server.sock"`
 	MinPasswdEntropy float64 `envconfig:"default=30"`
+
+	DisableGUI bool `envconfig:"default=false"`
 }

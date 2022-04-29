@@ -28,6 +28,7 @@ func (h *Handler) InsertLicense(ctx context.Context, l *model.License) error {
 			"updated":        l.Updated,
 			"last_used":      l.LastUsed,
 			"issuer_id":      l.IssuerID,
+			"product_id":     l.ProductID,
 		})
 
 	_, err := sq.ExecContext(ctx)
@@ -42,7 +43,7 @@ func (h *Handler) SelectAllLicensesByIssuerID(ctx context.Context, licenseIssuer
 		func(sq squirrel.SelectBuilder) squirrel.SelectBuilder {
 			return sq.Where(squirrel.Eq{
 				"issuer_id": licenseIssuerID,
-			}).OrderBy("last_used", "updated DESC")
+			}).OrderBy("active DESC", "last_used", "updated DESC")
 		})
 }
 
@@ -84,6 +85,7 @@ func (h *Handler) selectLicenses(ctx context.Context, action string, d selectDec
 		"updated",
 		"last_used",
 		"issuer_id",
+		"product_id",
 	).From(scope)
 
 	rows, err := d(sq).QueryContext(ctx)
@@ -110,6 +112,7 @@ func (h *Handler) selectLicenses(ctx context.Context, action string, d selectDec
 			&l.Updated,
 			&l.LastUsed,
 			&l.IssuerID,
+			&l.ProductID,
 		)
 		if err != nil {
 			return nil, &Error{err: err, Scope: scope, Action: action}

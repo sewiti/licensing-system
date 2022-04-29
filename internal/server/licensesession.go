@@ -41,6 +41,8 @@ func licCreateLicenseSession(c *core.Core) apiHandler {
 		RefreshAfter    time.Time `json:"refresh"`
 		ExpireAfter     time.Time `json:"expire"`
 		Data            []byte    `json:"data,omitempty"`
+		ProductName     string    `json:"productName"`
+		ProductData     []byte    `json:"productData,omitempty"`
 	}
 
 	return func(r *http.Request) *apiResponse {
@@ -51,6 +53,7 @@ func licCreateLicenseSession(c *core.Core) apiHandler {
 		if err != nil {
 			return responseBadRequest(err)
 		}
+
 		l, err := c.GetLicense(r.Context(), req.LicenseID)
 		if err != nil {
 			switch {
@@ -68,7 +71,7 @@ func licCreateLicenseSession(c *core.Core) apiHandler {
 			return responseBadRequest(err)
 		}
 
-		ls, refresh, err := c.NewLicenseSession(
+		ls, p, refresh, err := c.NewLicenseSession(
 			r.Context(),
 			l,
 			data.ClientSessionID,
@@ -85,6 +88,10 @@ func licCreateLicenseSession(c *core.Core) apiHandler {
 				return responseForbidden(err)
 			case errors.Is(err, core.ErrLicenseInactive):
 				return responseForbidden(err)
+			case errors.Is(err, core.ErrProductInactive):
+				return responseForbidden(err)
+			case errors.Is(err, core.ErrLicenseIssuerDisabled):
+				return responseForbidden(err)
 			case errors.Is(err, core.ErrRateLimitReached):
 				return responseConflict(err)
 			default:
@@ -99,6 +106,8 @@ func licCreateLicenseSession(c *core.Core) apiHandler {
 			ExpireAfter:     ls.Expire,
 			Timestamp:       time.Now(),
 			Data:            l.Data,
+			ProductName:     p.Name,
+			ProductData:     p.Data,
 		}
 		nonce, err := util.GenerateNonce(cryptorand.Reader)
 		if err != nil {
@@ -134,6 +143,8 @@ func licUpdateLicenseSession(c *core.Core) apiHandler {
 		RefreshAfter time.Time `json:"refresh"`
 		ExpireAfter  time.Time `json:"expire"`
 		Data         []byte    `json:"data,omitempty"`
+		ProductName  string    `json:"productName"`
+		ProductData  []byte    `json:"productData,omitempty"`
 	}
 
 	return func(r *http.Request) *apiResponse {
@@ -174,7 +185,7 @@ func licUpdateLicenseSession(c *core.Core) apiHandler {
 				return responseInternalServerError()
 			}
 		}
-		refresh, err := c.UpdateLicenseSession(r.Context(), ls, l, reqData.Timestamp)
+		p, refresh, err := c.UpdateLicenseSession(r.Context(), ls, l, reqData.Timestamp)
 		if err != nil {
 			switch {
 			case errors.Is(err, core.ErrTimeOutOfSync):
@@ -182,6 +193,10 @@ func licUpdateLicenseSession(c *core.Core) apiHandler {
 			case errors.Is(err, core.ErrLicenseExpired):
 				return responseForbidden(err)
 			case errors.Is(err, core.ErrLicenseInactive):
+				return responseForbidden(err)
+			case errors.Is(err, core.ErrProductInactive):
+				return responseForbidden(err)
+			case errors.Is(err, core.ErrLicenseIssuerDisabled):
 				return responseForbidden(err)
 			case errors.Is(err, core.ErrLicenseSessionExpired):
 				return responseForbidden(err)
@@ -198,6 +213,8 @@ func licUpdateLicenseSession(c *core.Core) apiHandler {
 			RefreshAfter: refresh,
 			ExpireAfter:  ls.Expire,
 			Data:         l.Data,
+			ProductName:  p.Name,
+			ProductData:  p.Data,
 		}
 		nonce, err := util.GenerateNonce(cryptorand.Reader)
 		if err != nil {

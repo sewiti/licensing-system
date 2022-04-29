@@ -1,10 +1,14 @@
 GO := $(shell test -x /usr/local/go/bin/go && echo /usr/local/go/bin/go || echo go)
 
-.PHONY: build test clean install
+.PHONY: build test clean install build-demo-client
 
 build:
 	mkdir -p ./build
 	$(GO) build -o ./build/licensing-server ./cmd/server
+
+build-demo-client:
+	mkdir -p ./build
+	$(GO) build -o ./build/demo-client ./cmd/demo-client
 
 test:
 	$(GO) test ./...
