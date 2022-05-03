@@ -179,6 +179,7 @@ func (c *Client) Run(ctx context.Context, maxRefresh time.Duration, cb SessionCa
 
 			if !errors.Is(err, errTemporary) {
 				// Error
+				_ = c.session.close(ctx, cryptorand.Reader)
 				c.session = nil
 				c.state = StateClosed
 				c.mx.Unlock()
@@ -203,7 +204,7 @@ func (c *Client) Run(ctx context.Context, maxRefresh time.Duration, cb SessionCa
 			refreshT.Stop()
 
 			c.mx.Lock()
-			// No need for sending any request
+			_ = c.session.close(ctx, cryptorand.Reader)
 			c.state = StateExpired
 			c.mx.Unlock()
 			cb.call("license session has expired", nil)

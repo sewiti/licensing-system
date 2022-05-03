@@ -17,12 +17,16 @@ import (
 )
 
 func main() {
+	var identifier string
+	var appVersion string
 	var licenseKeyStr string
 	var serverIDStr string
 	var machineIDFile string
 	var url string
 	var maxRefresh time.Duration
 	var n int
+	flag.StringVar(&identifier, "identifier", "", "System identifier.")
+	flag.StringVar(&appVersion, "app-version", "", "App version.")
 	flag.StringVar(&licenseKeyStr, "license-key", "", "License key.")
 	flag.StringVar(&serverIDStr, "server-id", "", "Licensing server ID key (public).")
 	flag.StringVar(&machineIDFile, "machine-id-file", "/etc/machine-id", "Machine ID file.")
@@ -59,11 +63,17 @@ func main() {
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	wg.Add(2 * n)
+	wg.Add(n)
 	for i := 0; i < n; i++ {
 		cl, err := license.NewClient(url, serverID, machineID, licenseKey)
 		if err != nil {
 			exitf(1, "%v\n", err)
+		}
+		if identifier != "" {
+			cl.SetIdentifier(identifier)
+		}
+		if appVersion != "" {
+			cl.SetAppVersion(appVersion)
 		}
 
 		go func(i int) {
@@ -71,14 +81,17 @@ func main() {
 			cl.Run(ctx, maxRefresh, func(msg string, err error) {
 				if err != nil {
 					log.WithError(err).Errorf("%d: %s", i, msg)
-					return
+				} else {
+					log.Infof("%d: %s", i, msg)
 				}
-				log.Infof("%d: %s", i, msg)
+				if err = logLicenseData(i, cl); err != nil {
+					log.WithError(err).Errorf("%d: state: %v", i, cl.State())
+				}
 			})
-		}(i)
+			if ctx.Err() != nil {
+				return
+			}
 
-		go func(i int) {
-			defer wg.Done()
 			t := time.NewTicker(maxRefresh)
 			defer t.Stop()
 			for {
@@ -86,28 +99,32 @@ func main() {
 				case <-ctx.Done():
 					return
 				case <-t.C:
-					productName, err := cl.ProductName()
-					if err != nil {
+					if err = logLicenseData(i, cl); err != nil {
 						log.WithError(err).Errorf("%d: state: %v", i, cl.State())
-						continue
 					}
-					productData, err := cl.ProductData()
-					if err != nil {
-						log.WithError(err).Errorf("%d: state: %v", i, cl.State())
-						continue
-					}
-					data, err := cl.Data()
-					if err != nil {
-						log.WithError(err).Errorf("%d: state: %v", i, cl.State())
-						continue
-					}
-					log.Infof("%d: state: %v; product-name: %s; product-data: %s; license-data: %s", i, cl.State(), productName, productData, data)
 				}
 			}
 		}(i)
 	}
 	<-ctx.Done()
 	wg.Wait()
+}
+
+func logLicenseData(i int, cl *license.Client) error {
+	productName, err := cl.ProductName()
+	if err != nil {
+		return err
+	}
+	productData, err := cl.ProductData()
+	if err != nil {
+		return err
+	}
+	data, err := cl.Data()
+	if err != nil {
+		return err
+	}
+	log.Infof("%d: state: %v; product-name: %s; product-data: %s; license-data: %s", i, cl.State(), productName, productData, data)
+	return nil
 }
 
 func exitf(code int, format string, a ...interface{}) {
