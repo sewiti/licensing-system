@@ -25,13 +25,15 @@ func TestHandler_InsertLicenseSession(t *testing.T) {
 			0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
 			0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf,
 		},
-		Created:   time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
-		Expire:    time.Date(2022, 1, 2, 0, 0, 0, 0, time.UTC),
-		LicenseID: base64Key("sswRe+P3j0nKqTcCLJ+cPk/8VyjrJzNyxcHCUoXYDFo="),
+		AppVersion: "1.42",
+		Created:    time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
+		Expire:     time.Date(2022, 1, 2, 0, 0, 0, 0, time.UTC),
+		LicenseID:  base64Key("sswRe+P3j0nKqTcCLJ+cPk/8VyjrJzNyxcHCUoXYDFo="),
 	}
 
-	mock.ExpectExec("INSERT INTO license_session (client_session_id,created,expire,identifier,license_id,machine_id,server_session_id,server_session_key) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)").
+	mock.ExpectExec("INSERT INTO license_session (app_version,client_session_id,created,expire,identifier,license_id,machine_id,server_session_id,server_session_key) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)").
 		WithArgs(
+			ls.AppVersion,
 			ls.ClientID,
 			ls.Created,
 			ls.Expire,
@@ -55,6 +57,7 @@ func TestHandler_SelectAllLicenseSessionsByLicenseID(t *testing.T) {
 	licenseID := base64Key("rnlnMc3JAaIPfxNnYv/A7WT+QpzUuFs3h6pali4V8T4=")
 	expected := []*model.LicenseSession{
 		{
+			AppVersion: "1.23",
 			ClientID:   base64Key("TK3hUQGPZKiqXGpG76D9VGrjfvqjDXisv7nB7Qgm20Y="),
 			ServerID:   base64Key("XyVhUg+vvJ6Z4RtCDEyW25OSxDSeySDvVzMHr1iGfwc="),
 			ServerKey:  base64Key("omTAEtJDlu4+o+1xwhEujmpDv94+ljwDKydf2mjYL0A="),
@@ -68,6 +71,7 @@ func TestHandler_SelectAllLicenseSessionsByLicenseID(t *testing.T) {
 			LicenseID: licenseID,
 		},
 		{
+			AppVersion: "1.62",
 			ClientID:   base64Key("9IdvR71TDTcV0aYS9EyrTU09tzM9+LqlaGb5cXwiPQU="),
 			ServerID:   base64Key("kciqYBC47Y03z7umzyQu6LoAmOu6xkoyOwOMNPeXD1M="),
 			ServerKey:  base64Key("vj708c0gEF97Z/GiOrsEcAbHLHM5BJdSRZpg5YyxbTw="),
@@ -88,6 +92,7 @@ func TestHandler_SelectAllLicenseSessionsByLicenseID(t *testing.T) {
 		"server_session_key",
 		"identifier",
 		"machine_id",
+		"app_version",
 		"created",
 		"expire",
 		"license_id",
@@ -99,13 +104,14 @@ func TestHandler_SelectAllLicenseSessionsByLicenseID(t *testing.T) {
 			v.ServerKey,
 			v.Identifier,
 			v.MachineID,
+			v.AppVersion,
 			v.Created,
 			v.Expire,
 			v.LicenseID,
 		)
 	}
 
-	mock.ExpectQuery("SELECT client_session_id, server_session_id, server_session_key, identifier, machine_id, created, expire, license_id FROM license_session WHERE license_id = $1").
+	mock.ExpectQuery("SELECT client_session_id, server_session_id, server_session_key, identifier, machine_id, app_version, created, expire, license_id FROM license_session WHERE license_id = $1 ORDER BY created").
 		WithArgs(licenseID).
 		WillReturnRows(rows)
 
@@ -120,6 +126,7 @@ func TestHandler_SelectLicenseSessionByID(t *testing.T) {
 	defer h.Close()
 
 	expected := &model.LicenseSession{
+		AppVersion: "1.42",
 		ClientID:   base64Key("TK3hUQGPZKiqXGpG76D9VGrjfvqjDXisv7nB7Qgm20Y="),
 		ServerID:   base64Key("XyVhUg+vvJ6Z4RtCDEyW25OSxDSeySDvVzMHr1iGfwc="),
 		ServerKey:  base64Key("omTAEtJDlu4+o+1xwhEujmpDv94+ljwDKydf2mjYL0A="),
@@ -139,6 +146,7 @@ func TestHandler_SelectLicenseSessionByID(t *testing.T) {
 		"server_session_key",
 		"identifier",
 		"machine_id",
+		"app_version",
 		"created",
 		"expire",
 		"license_id",
@@ -148,12 +156,13 @@ func TestHandler_SelectLicenseSessionByID(t *testing.T) {
 		expected.ServerKey,
 		expected.Identifier,
 		expected.MachineID,
+		expected.AppVersion,
 		expected.Created,
 		expected.Expire,
 		expected.LicenseID,
 	)
 
-	mock.ExpectQuery("SELECT client_session_id, server_session_id, server_session_key, identifier, machine_id, created, expire, license_id FROM license_session WHERE client_session_id = $1").
+	mock.ExpectQuery("SELECT client_session_id, server_session_id, server_session_key, identifier, machine_id, app_version, created, expire, license_id FROM license_session WHERE client_session_id = $1").
 		WithArgs(expected.ClientID).
 		WillReturnRows(rows)
 
@@ -168,6 +177,7 @@ func TestHandler_UpdateLicenseSession(t *testing.T) {
 	defer h.Close()
 
 	ls := &model.LicenseSession{
+		AppVersion: "1.23",
 		ClientID:   base64Key("TK3hUQGPZKiqXGpG76D9VGrjfvqjDXisv7nB7Qgm20Y="),
 		ServerID:   base64Key("XyVhUg+vvJ6Z4RtCDEyW25OSxDSeySDvVzMHr1iGfwc="),
 		ServerKey:  base64Key("omTAEtJDlu4+o+1xwhEujmpDv94+ljwDKydf2mjYL0A="),
@@ -181,8 +191,9 @@ func TestHandler_UpdateLicenseSession(t *testing.T) {
 		LicenseID: base64Key("sswRe+P3j0nKqTcCLJ+cPk/8VyjrJzNyxcHCUoXYDFo="),
 	}
 
-	mock.ExpectExec("UPDATE license_session SET created = $1, expire = $2, identifier = $3, license_id = $4, machine_id = $5, server_session_id = $6, server_session_key = $7 WHERE client_session_id = $8").
+	mock.ExpectExec("UPDATE license_session SET app_version = $1, created = $2, expire = $3, identifier = $4, license_id = $5, machine_id = $6, server_session_id = $7, server_session_key = $8 WHERE client_session_id = $9").
 		WithArgs(
+			ls.AppVersion,
 			ls.Created,
 			ls.Expire,
 			ls.Identifier,
@@ -206,7 +217,7 @@ func TestHandler_DeleteLicenseSessionBySessionID(t *testing.T) {
 	const expected = 4
 	clientID := base64Key("TK3hUQGPZKiqXGpG76D9VGrjfvqjDXisv7nB7Qgm20Y=")
 
-	mock.ExpectExec("DELETE FROM license_session WHERE server_session_id = $1").
+	mock.ExpectExec("DELETE FROM license_session WHERE client_session_id = $1").
 		WithArgs(clientID).
 		WillReturnResult(sqlmock.NewResult(0, expected))
 

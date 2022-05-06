@@ -78,6 +78,18 @@ func TestVerifyPasswd(t *testing.T) {
 			hash:      "argon2id$v=19,t=8,m=32768,p=4$9oV2HEQvNcSpxjkNBSAQAQ==$JMhcCrhKMFOtY5rcEmnAiDKw71ooKOGwIaeermvmouw=",
 			assertion: assert.Error,
 		},
+		{
+			name:      "nologin user",
+			password:  "qwerty🌸 ",
+			hash:      "nologin",
+			assertion: assert.Error,
+		},
+		{
+			name:      "unsupported algorithm",
+			password:  "qwerty🌸 ",
+			hash:      "sha512$def$asd",
+			assertion: assert.Error,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

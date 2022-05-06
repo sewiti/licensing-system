@@ -17,27 +17,33 @@ func TestHandler_InsertLicense(t *testing.T) {
 	require.NoError(t, err)
 	defer h.Close()
 
+	productID := 5
 	validUntil := time.Date(2022, 2, 2, 0, 0, 0, 0, time.UTC)
 	lastUsed := time.Date(2022, 2, 3, 0, 0, 0, 0, time.UTC)
 	l := &model.License{
-		ID:          base64Key("sswRe+P3j0nKqTcCLJ+cPk/8VyjrJzNyxcHCUoXYDFo="),
-		Key:         base64Key("YFxMq0722e2v2f3tg3+QpkIrV3dlqjCQQv9X7LhMZG0="),
-		Name:        "Testing license",
-		Tags:        []string{"testing", "dev"},
-		Note:        "Note",
-		Data:        []byte(`{"extraJsonData":true}`),
-		MaxSessions: 4,
-		ValidUntil:  &validUntil,
-		Created:     time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
-		Updated:     time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
-		LastUsed:    &lastUsed,
-		IssuerID:    0,
+		ID:           base64Key("sswRe+P3j0nKqTcCLJ+cPk/8VyjrJzNyxcHCUoXYDFo="),
+		Key:          base64Key("YFxMq0722e2v2f3tg3+QpkIrV3dlqjCQQv9X7LhMZG0="),
+		Name:         "Testing license",
+		Tags:         []string{"testing", "dev"},
+		Note:         "Note",
+		Data:         []byte(`{"extraJsonData":true}`),
+		MaxSessions:  4,
+		ValidUntil:   &validUntil,
+		Created:      time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
+		Updated:      time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
+		LastUsed:     &lastUsed,
+		IssuerID:     0,
+		Active:       true,
+		EndUserEmail: "email@test.com",
+		ProductID:    &productID,
 	}
 
-	mock.ExpectExec("INSERT INTO license (created,data,id,issuer_id,key,last_used,max_sessions,name,note,tags,updated,valid_until) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)").
+	mock.ExpectExec("INSERT INTO license (active,created,data,end_user_email,id,issuer_id,key,last_used,max_sessions,name,note,product_id,tags,updated,valid_until) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)").
 		WithArgs(
+			l.Active,
 			l.Created,
 			l.Data,
+			l.EndUserEmail,
 			l.ID,
 			l.IssuerID,
 			l.Key,
@@ -45,6 +51,7 @@ func TestHandler_InsertLicense(t *testing.T) {
 			l.MaxSessions,
 			l.Name,
 			l.Note,
+			l.ProductID,
 			pq.Array(l.Tags),
 			l.Updated,
 			l.ValidUntil,
@@ -60,58 +67,70 @@ func TestHandler_SelectAllLicensesByIssuerID(t *testing.T) {
 	require.NoError(t, err)
 	defer h.Close()
 
+	productID := 5
 	validUntil := time.Date(2022, 2, 2, 0, 0, 0, 0, time.UTC)
 	lastUsed := time.Date(2022, 2, 3, 0, 0, 0, 0, time.UTC)
 	expected := []*model.License{
 		{
-			ID:          base64Key("sswRe+P3j0nKqTcCLJ+cPk/8VyjrJzNyxcHCUoXYDFo="),
-			Key:         base64Key("YFxMq0722e2v2f3tg3+QpkIrV3dlqjCQQv9X7LhMZG0="),
-			Name:        "Testing license",
-			Tags:        []string{"testing", "dev"},
-			Note:        "Note",
-			Data:        []byte(`{"extraJsonData":true}`),
-			MaxSessions: 4,
-			ValidUntil:  &validUntil,
-			Created:     time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
-			Updated:     time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
-			LastUsed:    &lastUsed,
-			IssuerID:    0,
+			ID:           base64Key("sswRe+P3j0nKqTcCLJ+cPk/8VyjrJzNyxcHCUoXYDFo="),
+			Key:          base64Key("YFxMq0722e2v2f3tg3+QpkIrV3dlqjCQQv9X7LhMZG0="),
+			Name:         "Testing license",
+			Tags:         []string{"testing", "dev"},
+			Note:         "Note",
+			Data:         []byte(`{"extraJsonData":true}`),
+			MaxSessions:  4,
+			ValidUntil:   &validUntil,
+			Created:      time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
+			Updated:      time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
+			LastUsed:     &lastUsed,
+			IssuerID:     0,
+			Active:       true,
+			EndUserEmail: "email@test.com",
+			ProductID:    &productID,
 		},
 		{
-			ID:          base64Key("wf0SXXMDQ03VwgwIIf5TiUO8gT/VzkzihcZ2Z17qomM="),
-			Key:         base64Key("7/OninN+j5dqMfQmrQoGkpjTCSdUmLhEHjUarm7qH+Q="),
-			Name:        "Testing license 2",
-			Tags:        []string{"testing"},
-			Note:        "Note 2",
-			Data:        nil,
-			MaxSessions: 1,
-			ValidUntil:  &validUntil,
-			Created:     time.Date(2022, 1, 2, 0, 0, 0, 0, time.UTC),
-			Updated:     time.Date(2022, 1, 2, 0, 0, 0, 0, time.UTC),
-			IssuerID:    0,
+			ID:           base64Key("wf0SXXMDQ03VwgwIIf5TiUO8gT/VzkzihcZ2Z17qomM="),
+			Key:          base64Key("7/OninN+j5dqMfQmrQoGkpjTCSdUmLhEHjUarm7qH+Q="),
+			Name:         "Testing license 2",
+			Tags:         []string{"testing"},
+			Note:         "Note 2",
+			Data:         nil,
+			MaxSessions:  1,
+			ValidUntil:   &validUntil,
+			Created:      time.Date(2022, 1, 2, 0, 0, 0, 0, time.UTC),
+			Updated:      time.Date(2022, 1, 2, 0, 0, 0, 0, time.UTC),
+			IssuerID:     0,
+			Active:       true,
+			EndUserEmail: "email@test.com",
+			ProductID:    &productID,
 		},
 	}
 
 	rows := sqlmock.NewRows([]string{
 		"id",
 		"key",
+		"active",
 		"name",
 		"tags",
+		"end_user_email",
 		"note",
 		"data",
 		"max_sessions",
 		"valid_until",
 		"created",
 		"updated",
-		"last_used",
 		"issuer_id",
+		"last_used",
+		"product_id",
 	})
 	for _, v := range expected {
 		rows.AddRow(
 			v.ID,
 			v.Key,
+			v.Active,
 			v.Name,
 			pq.Array(v.Tags),
+			v.EndUserEmail,
 			v.Note,
 			v.Data,
 			v.MaxSessions,
@@ -120,10 +139,11 @@ func TestHandler_SelectAllLicensesByIssuerID(t *testing.T) {
 			v.Updated,
 			v.LastUsed,
 			v.IssuerID,
+			v.ProductID,
 		)
 	}
 
-	mock.ExpectQuery("SELECT id, key, name, tags, note, data, max_sessions, valid_until, created, updated, last_used, issuer_id FROM license WHERE issuer_id = $1 ORDER BY last_used, updated").
+	mock.ExpectQuery("SELECT id, key, active, name, tags, end_user_email, note, data, max_sessions, valid_until, created, updated, last_used, issuer_id, product_id FROM license WHERE issuer_id = $1 ORDER BY active DESC, last_used, updated DESC").
 		WithArgs(0).
 		WillReturnRows(rows)
 
@@ -137,42 +157,62 @@ func TestHandler_SelectLicenseByID(t *testing.T) {
 	require.NoError(t, err)
 	defer h.Close()
 
+	productID := 5
 	validUntil := time.Date(2022, 2, 2, 0, 0, 0, 0, time.UTC)
+	lastUsed := time.Date(2022, 3, 2, 0, 0, 0, 0, time.UTC)
 	expected := &model.License{
-		ID:          base64Key("sswRe+P3j0nKqTcCLJ+cPk/8VyjrJzNyxcHCUoXYDFo="),
-		Key:         base64Key("YFxMq0722e2v2f3tg3+QpkIrV3dlqjCQQv9X7LhMZG0="),
-		Note:        "Note",
-		Data:        []byte(`{"extraJsonData":true}`),
-		MaxSessions: 4,
-		ValidUntil:  &validUntil,
-		Created:     time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
-		Updated:     time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
-		IssuerID:    0,
+		ID:           base64Key("sswRe+P3j0nKqTcCLJ+cPk/8VyjrJzNyxcHCUoXYDFo="),
+		Key:          base64Key("YFxMq0722e2v2f3tg3+QpkIrV3dlqjCQQv9X7LhMZG0="),
+		Note:         "Note",
+		Data:         []byte(`{"extraJsonData":true}`),
+		MaxSessions:  4,
+		ValidUntil:   &validUntil,
+		Created:      time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
+		Updated:      time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
+		IssuerID:     0,
+		Active:       true,
+		EndUserEmail: "email@test.com",
+		ProductID:    &productID,
+		Name:         "hello",
+		Tags:         []string{"tag-1", "tag-2"},
+		LastUsed:     &lastUsed,
 	}
 
 	rows := sqlmock.NewRows([]string{
 		"id",
 		"key",
+		"active",
+		"name",
+		"tags",
+		"end_user_email",
 		"note",
 		"data",
 		"max_sessions",
 		"valid_until",
 		"created",
 		"updated",
+		"last_used",
 		"issuer_id",
+		"product_id",
 	}).AddRow(
 		expected.ID,
 		expected.Key,
+		expected.Active,
+		expected.Name,
+		pq.Array(expected.Tags),
+		expected.EndUserEmail,
 		expected.Note,
 		expected.Data,
 		expected.MaxSessions,
 		expected.ValidUntil,
 		expected.Created,
 		expected.Updated,
+		expected.LastUsed,
 		expected.IssuerID,
+		expected.ProductID,
 	)
 
-	mock.ExpectQuery("SELECT id, key, note, data, max_sessions, valid_until, created, updated, issuer_id FROM license WHERE id = $1").
+	mock.ExpectQuery("SELECT id, key, active, name, tags, end_user_email, note, data, max_sessions, valid_until, created, updated, last_used, issuer_id, product_id FROM license WHERE id = $1").
 		WithArgs(expected.ID).
 		WillReturnRows(rows)
 

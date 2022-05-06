@@ -22,19 +22,23 @@ func TestHandler_InsertLicenseIssuer(t *testing.T) {
 		Username:     "superadmin",
 		PasswordHash: "argon2id$t=2,m=65536,p=4$9oV2HEQvNcSpxjkNBSAQAQ==$MWGxLaIDexqiJjL1OjDFA8x+stulQAzkN6g65n9ugGs=",
 		MaxLicenses:  -1,
+		Email:        "email@test.com",
+		PhoneNumber:  "+370123123123",
 		Created:      time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
+		Updated:      time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
 
-	mock.ExpectExec("INSERT INTO license_issuer (active,created,max_licenses,password_hash,updated,username) VALUES ($1,$2,$3,$4,$5,$6)").
+	mock.ExpectQuery("INSERT INTO license_issuer (active,created,email,max_licenses,password_hash,phone_number,updated,username) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id").
 		WithArgs(
 			li.Active,
 			li.Created,
+			li.Email,
 			li.MaxLicenses,
 			li.PasswordHash,
+			li.PhoneNumber,
 			li.Updated,
 			li.Username,
-		).
-		WillReturnResult(sqlmock.NewResult(int64(li.ID), 1))
+		).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(li.ID))
 
 	id, err := h.InsertLicenseIssuer(context.Background(), li)
 	assert.NoError(t, err)
@@ -53,6 +57,8 @@ func TestHandler_SelectAllLicenseIssuers(t *testing.T) {
 			Username:     "superadmin",
 			PasswordHash: "argon2id$v=19,t=2,m=65536,p=4$9oV2HEQvNcSpxjkNBSAQAQ==$MWGxLaIDexqiJjL1OjDFA8x+stulQAzkN6g65n9ugGs=",
 			MaxLicenses:  -1,
+			Email:        "email@test.com",
+			PhoneNumber:  "+370123123123",
 			Created:      time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
 			Updated:      time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
 		},
@@ -62,6 +68,8 @@ func TestHandler_SelectAllLicenseIssuers(t *testing.T) {
 			Username:     "testuser",
 			PasswordHash: "argon2id$v=19,t=8,m=32768,p=4$9oV2HEQvNcSpxjkNBSAQAQ==$JMhcCrhKMFOtY5rcEmnAiDKw71ooKOGwIaeermvmouw=",
 			MaxLicenses:  -1,
+			Email:        "email@test.com",
+			PhoneNumber:  "+370123123123",
 			Created:      time.Date(2022, 1, 2, 0, 0, 0, 0, time.UTC),
 			Updated:      time.Date(2022, 1, 2, 0, 0, 0, 0, time.UTC),
 		},
@@ -72,6 +80,8 @@ func TestHandler_SelectAllLicenseIssuers(t *testing.T) {
 		"active",
 		"username",
 		"password_hash",
+		"email",
+		"phone_number",
 		"max_licenses",
 		"created",
 		"updated",
@@ -82,13 +92,15 @@ func TestHandler_SelectAllLicenseIssuers(t *testing.T) {
 			v.Active,
 			v.Username,
 			v.PasswordHash,
+			v.Email,
+			v.PhoneNumber,
 			v.MaxLicenses,
 			v.Created,
 			v.Updated,
 		)
 	}
 
-	mock.ExpectQuery("SELECT id, active, username, password_hash, max_licenses, created, updated FROM license_issuer").
+	mock.ExpectQuery("SELECT id, active, username, password_hash, email, phone_number, max_licenses, created, updated FROM license_issuer ORDER BY active DESC, id").
 		WillReturnRows(rows)
 
 	got, err := h.SelectAllLicenseIssuers(context.Background())
@@ -107,6 +119,8 @@ func TestHandler_SelectLicenseIssuerByUsername(t *testing.T) {
 		Username:     "superadmin",
 		PasswordHash: "argon2id$t=2,m=65536,p=4$9oV2HEQvNcSpxjkNBSAQAQ==$MWGxLaIDexqiJjL1OjDFA8x+stulQAzkN6g65n9ugGs=",
 		MaxLicenses:  -1,
+		Email:        "email@test.com",
+		PhoneNumber:  "+370123123123",
 		Created:      time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
 		Updated:      time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
@@ -116,6 +130,8 @@ func TestHandler_SelectLicenseIssuerByUsername(t *testing.T) {
 		"active",
 		"username",
 		"password_hash",
+		"email",
+		"phone_number",
 		"max_licenses",
 		"created",
 		"updated",
@@ -124,12 +140,14 @@ func TestHandler_SelectLicenseIssuerByUsername(t *testing.T) {
 		expected.Active,
 		expected.Username,
 		expected.PasswordHash,
+		expected.Email,
+		expected.PhoneNumber,
 		expected.MaxLicenses,
 		expected.Created,
 		expected.Updated,
 	)
 
-	mock.ExpectQuery("SELECT id, active, username, password_hash, max_licenses, created, updated FROM license_issuer WHERE username = $1").
+	mock.ExpectQuery("SELECT id, active, username, password_hash, email, phone_number, max_licenses, created, updated FROM license_issuer WHERE username = $1").
 		WithArgs(expected.Username).
 		WillReturnRows(rows)
 
@@ -149,6 +167,8 @@ func TestHandler_SelectLicenseIssuerByID(t *testing.T) {
 		Username:     "superadmin",
 		PasswordHash: "argon2id$t=2,m=65536,p=4$9oV2HEQvNcSpxjkNBSAQAQ==$MWGxLaIDexqiJjL1OjDFA8x+stulQAzkN6g65n9ugGs=",
 		MaxLicenses:  -1,
+		Email:        "email@test.com",
+		PhoneNumber:  "+370123123123",
 		Created:      time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
 		Updated:      time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
@@ -158,6 +178,8 @@ func TestHandler_SelectLicenseIssuerByID(t *testing.T) {
 		"active",
 		"username",
 		"password_hash",
+		"email",
+		"phone_number",
 		"max_licenses",
 		"created",
 		"updated",
@@ -166,12 +188,14 @@ func TestHandler_SelectLicenseIssuerByID(t *testing.T) {
 		expected.Active,
 		expected.Username,
 		expected.PasswordHash,
+		expected.Email,
+		expected.PhoneNumber,
 		expected.MaxLicenses,
 		expected.Created,
 		expected.Updated,
 	)
 
-	mock.ExpectQuery("SELECT id, active, username, password_hash, max_licenses, created, updated FROM license_issuer WHERE id = $1").
+	mock.ExpectQuery("SELECT id, active, username, password_hash, email, phone_number, max_licenses, created, updated FROM license_issuer WHERE id = $1").
 		WithArgs(expected.ID).
 		WillReturnRows(rows)
 
