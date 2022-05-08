@@ -30,6 +30,14 @@ entered in `/opt/licensing-server/.env` in the following format:
 DB_DSN=postgres://licensingUname:securePasswd@localhost:5432/licensingDB?sslmode=disable
 ```
 
+### Starting
+
+Using systemd service:
+
+```sh
+sudo systemctl enable --now licensing.server.service
+```
+
 ## Env config
 
 System has a lot of options to configure to fit your needs. Default location of
