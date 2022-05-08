@@ -11,6 +11,7 @@ type config struct {
 		ReadTimeout     time.Duration `envconfig:"default=30s"`
 		WriteTimeout    time.Duration `envconfig:"default=30s"`
 		ShutdownTimeout time.Duration `envconfig:"default=30s"`
+		Gzip            bool          `envconfig:"default=false"`
 
 		CORS struct {
 			ResourceApiEnabled  bool     `envconfig:"default=false"`

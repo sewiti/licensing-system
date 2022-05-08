@@ -83,7 +83,9 @@ func runServer() error {
 		cfg.HTTP.CORS.ResourceApiEnabled,
 		cfg.HTTP.CORS.LicensingApiEnabled,
 		cfg.HTTP.CORS.AllowedOrigins)
-	r.Use(handlers.CompressHandler)
+	if cfg.HTTP.Gzip {
+		r.Use(handlers.CompressHandler)
+	}
 	srv := http.Server{
 		Addr:         cfg.HTTP.Listen,
 		Handler:      r,
