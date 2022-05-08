@@ -38,7 +38,7 @@ type config struct {
 
 		Limiter struct {
 			SessionEvery     time.Duration `envconfig:"default=10m"`
-			SessionEveryInit time.Duration `envconfig:"default=1m"`
+			SessionEveryInit time.Duration `envconfig:"default=1m"` // not used due to a bug
 			BurstTotal       time.Duration `envconfig:"default=8h"`
 
 			CacheExpiration      time.Duration `envconfig:"default=24h"`
