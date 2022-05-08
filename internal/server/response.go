@@ -152,9 +152,11 @@ func spaHandler(public fs.FS, root string) http.Handler {
 		defer f.Close()
 		switch {
 		case strings.HasSuffix(p, ".js"):
-			w.Header().Set("Content-Type", "text/javascript")
+			w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
 		case strings.HasSuffix(p, ".css"):
-			w.Header().Set("Content-Type", "text/css")
+			w.Header().Set("Content-Type", "text/css; charset=utf-8")
+		case strings.HasSuffix(p, ".svg"):
+			w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
 		}
 		_, err = io.Copy(w, f)
 		if err != nil {
