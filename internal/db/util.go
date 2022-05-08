@@ -10,10 +10,6 @@ import (
 
 type selectDecorator func(sq squirrel.SelectBuilder) squirrel.SelectBuilder
 
-func selectPassthrough(sq squirrel.SelectBuilder) squirrel.SelectBuilder {
-	return sq
-}
-
 func (h *Handler) execInsert(ctx context.Context, sq squirrel.InsertBuilder, scope, action string, id interface{}) error {
 	row := sq.QueryRowContext(ctx)
 	err := row.Scan(id)

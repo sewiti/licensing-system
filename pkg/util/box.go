@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 
-	"golang.org/x/crypto/nacl/box"
 	naclbox "golang.org/x/crypto/nacl/box"
 )
 
@@ -30,6 +29,7 @@ func SealJsonBox(data interface{}, nonce, peersPublicKey, privateKey []byte) ([]
 	if err != nil {
 		return nil, err
 	}
+
 	return naclbox.Seal(nil, in, n, pub, priv), nil
 }
 
@@ -40,7 +40,7 @@ func GenerateNonce(rand io.Reader) ([]byte, error) {
 }
 
 func GenerateKey(rand io.Reader) (publicKey, privateKey []byte, err error) {
-	pub, priv, err := box.GenerateKey(rand)
+	pub, priv, err := naclbox.GenerateKey(rand)
 	if err != nil {
 		return nil, nil, err
 	}
