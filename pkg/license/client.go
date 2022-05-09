@@ -95,9 +95,12 @@ func (c *Client) newSession(ctx context.Context) (*session, error) {
 		clientKey: clientKey,
 		url:       c.url,
 
+		name: data.Name,
+		data: data.Data,
+
+		productID:   data.ProductID,
 		productName: data.ProductName,
 		productData: data.ProductData,
-		data:        data.Data,
 	}
 	s.updateTimes(time.Now(), data.Timestamp, data.RefreshAfter, data.ExpireAfter)
 	return s, nil
@@ -238,6 +241,15 @@ func (c *Client) State() State {
 	return c.state
 }
 
+func (c *Client) Name() (string, error) {
+	c.mx.RLock()
+	defer c.mx.RUnlock()
+	if c.session == nil {
+		return "", ErrNotConnected
+	}
+	return c.session.name, nil
+}
+
 func (c *Client) Data() ([]byte, error) {
 	c.mx.RLock()
 	defer c.mx.RUnlock()
@@ -256,6 +268,19 @@ func (c *Client) UnmarshalData(v interface{}) error {
 		return ErrNotConnected
 	}
 	return json.Unmarshal(c.session.data, v)
+}
+
+func (c *Client) ProductID() (id int, exists bool, err error) {
+	c.mx.RLock()
+	defer c.mx.RUnlock()
+	if c.session == nil {
+		return 0, false, ErrNotConnected
+	}
+	if c.session.productID == nil {
+		return 0, false, nil
+	}
+	return *c.session.productID, true, nil
+
 }
 
 func (c *Client) ProductName() (string, error) {

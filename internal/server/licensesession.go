@@ -40,7 +40,9 @@ func licCreateLicenseSession(c *core.Core) apiHandler {
 		Timestamp       time.Time `json:"ts"`
 		RefreshAfter    time.Time `json:"refresh"`
 		ExpireAfter     time.Time `json:"expire"`
+		Name            string    `json:"name,omitempty"`
 		Data            []byte    `json:"data,omitempty"`
+		ProductID       *int      `json:"productID,omitempty"`
 		ProductName     string    `json:"productName"`
 		ProductData     []byte    `json:"productData,omitempty"`
 	}
@@ -105,7 +107,9 @@ func licCreateLicenseSession(c *core.Core) apiHandler {
 			RefreshAfter:    refresh,
 			ExpireAfter:     ls.Expire,
 			Timestamp:       time.Now(),
+			Name:            l.Name,
 			Data:            l.Data,
+			ProductID:       l.ProductID,
 			ProductName:     p.Name,
 			ProductData:     p.Data,
 		}
@@ -142,7 +146,9 @@ func licUpdateLicenseSession(c *core.Core) apiHandler {
 		Timestamp    time.Time `json:"ts"`
 		RefreshAfter time.Time `json:"refresh"`
 		ExpireAfter  time.Time `json:"expire"`
+		Name         string    `json:"name,omitempty"`
 		Data         []byte    `json:"data,omitempty"`
+		ProductID    *int      `json:"productID,omitempty"`
 		ProductName  string    `json:"productName"`
 		ProductData  []byte    `json:"productData,omitempty"`
 	}
@@ -212,7 +218,9 @@ func licUpdateLicenseSession(c *core.Core) apiHandler {
 			Timestamp:    time.Now(),
 			RefreshAfter: refresh,
 			ExpireAfter:  ls.Expire,
+			Name:         l.Name,
 			Data:         l.Data,
+			ProductID:    l.ProductID,
 			ProductName:  p.Name,
 			ProductData:  p.Data,
 		}

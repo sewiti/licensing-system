@@ -111,6 +111,10 @@ func main() {
 }
 
 func logLicenseData(i int, cl *license.Client) error {
+	productID, _, err := cl.ProductID()
+	if err != nil {
+		return err
+	}
 	productName, err := cl.ProductName()
 	if err != nil {
 		return err
@@ -123,7 +127,8 @@ func logLicenseData(i int, cl *license.Client) error {
 	if err != nil {
 		return err
 	}
-	log.Infof("%d: state: %v; product-name: %s; product-data: %s; license-data: %s", i, cl.State(), productName, productData, data)
+	log.Infof("%d: state: %v; product-id: %d; product-name: %s; product-data: %s; license-data: %s",
+		i, cl.State(), productID, productName, productData, data)
 	return nil
 }
 

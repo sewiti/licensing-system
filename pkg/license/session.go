@@ -16,9 +16,12 @@ type session struct {
 	refreshAfter time.Time
 	expireAfter  time.Time
 
+	name string
+	data []byte
+
+	productID   *int
 	productName string
 	productData []byte
-	data        []byte
 }
 
 func (s *session) updateTimes(now, remote, refreshAfter, expireAfter time.Time) {
@@ -32,9 +35,11 @@ func (s *session) refresh(ctx context.Context, rand io.Reader) error {
 		return fmt.Errorf("license: session-refresh: %w", err)
 	}
 	s.updateTimes(time.Now(), data.Timestamp, data.RefreshAfter, data.ExpireAfter)
+	s.name = data.Name
+	s.data = data.Data
+	s.productID = data.ProductID
 	s.productName = data.ProductName
 	s.productData = data.ProductData
-	s.data = data.Data
 	return nil
 }
 
