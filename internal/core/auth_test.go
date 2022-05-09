@@ -57,6 +57,18 @@ func TestCore_SufficientPasswdStrength(t *testing.T) {
 			wantEntropy: 0.0,
 			wantOk:      false,
 		},
+		{
+			username:    "user",
+			password:    "helloHowAreYou",
+			wantEntropy: 19.832,
+			wantOk:      false,
+		},
+		{
+			username:    "strong-user",
+			password:    "this-is-a-very-long-password-which-is-good-enough",
+			wantEntropy: 101.628,
+			wantOk:      true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.username, func(t *testing.T) {
