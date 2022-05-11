@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -41,16 +42,16 @@ func RunCleanupRoutine(ctx context.Context, db *db.Handler, interval time.Durati
 // cleanup deletes expired and overused license sessions.
 //
 // Calls callback with info about deletion and an error if any.
-func cleanup(ctx context.Context, db *db.Handler, cb CleanupCallback) {
-	n, err := db.DeleteLicenseSessionsExpiredBy(ctx, time.Now())
-	if err != nil {
+func cleanup(ctx context.Context, dbh *db.Handler, cb CleanupCallback) {
+	n, err := dbh.DeleteLicenseSessionsExpiredBy(ctx, time.Now())
+	if err != nil && !errors.Is(err, db.ErrNotFound) {
 		cb.call("deleting expired license sessions", err)
 	} else {
 		cb.call(fmt.Sprintf("deleted %d expired license sessions", n), nil)
 	}
 
-	n, err = db.DeleteLicenseSessionsOverused(ctx)
-	if err != nil {
+	n, err = dbh.DeleteLicenseSessionsOverused(ctx)
+	if err != nil && !errors.Is(err, db.ErrNotFound) {
 		cb.call("deleting overused license sessions", err)
 	} else {
 		cb.call(fmt.Sprintf("deleted %d overused license sessions", n), nil)

@@ -4,29 +4,38 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 )
+
+const maxRequestSize = 256 * 1024 // 256 KiB
 
 type apiHandler func(r *http.Request) *apiResponse
 
 func withAPI(h apiHandler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		res := h(r)
-		if res == nil || res.statusCode == http.StatusNoContent {
-			w.WriteHeader(http.StatusNoContent)
-			return
+		switch r.Method {
+		case http.MethodPost, http.MethodPatch, http.MethodPut:
+			contentType := r.Header.Get("Content-Type")
+			i := strings.IndexRune(contentType, ';')
+			if i >= 0 {
+				contentType = contentType[:i]
+			}
+			if contentType != "application/json" {
+				responseJsonMsg(http.StatusUnsupportedMediaType,
+					"unsupported content type, expected application/json").
+					Write(w)
+				return
+			}
 		}
-		if res.json {
-			w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		} else {
-			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		}
-		w.WriteHeader(res.statusCode)
-		w.Write(res.body)
+		h(r).Write(w)
 	})
 }
 
 func jsonDecodeLim(r io.Reader, data interface{}) error {
-	const maxRequest = 256 * 1024 // 256 KiB
-	limited := io.LimitReader(r, maxRequest)
+	limited := io.LimitReader(r, maxRequestSize)
 	return json.NewDecoder(limited).Decode(data)
+}
+
+func readAllLim(r io.Reader) ([]byte, error) {
+	return io.ReadAll(io.LimitReader(r, maxRequestSize))
 }

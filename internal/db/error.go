@@ -5,7 +5,10 @@ import (
 	"fmt"
 )
 
-var ErrNotFound = errors.New("not found")
+var (
+	ErrNotFound  = errors.New("not found")
+	ErrDuplicate = errors.New("duplicate")
+)
 
 type Error struct {
 	Scope  string

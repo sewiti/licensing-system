@@ -6,11 +6,11 @@ StartLimitBurst=5
 
 [Service]
 Type=notify
-User=licensing
-Group=licensing
-WorkingDirectory=/opt/license-server
-ExecStart=/opt/license-server/license-server
-EnvironmentFile=/opt/license-server/.env
+User=root
+Group=root
+WorkingDirectory=/opt/licensing-server
+ExecStart=/opt/licensing-server/licensing-server run
+EnvironmentFile=/opt/licensing-server/.env
 Restart=on-failure
 RestartSec=1
 

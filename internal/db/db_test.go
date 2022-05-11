@@ -21,10 +21,10 @@ func newMock() (*Handler, sqlmock.Sqlmock, error) {
 	}, mock, nil
 }
 
-func base64Key(str string) *[32]byte {
+func base64Key(str string) []byte {
 	bs, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
 		panic(err)
 	}
-	return (*[32]byte)(bs)
+	return bs
 }

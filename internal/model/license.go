@@ -1,22 +1,23 @@
 package model
 
 import (
-	"encoding/json"
 	"time"
 )
 
 type License struct {
-	ID  *[32]byte
-	Key *[32]byte
-
-	Note string
-
-	Data        json.RawMessage
-	MaxSessions int
-	ValidUntil  *time.Time
-
-	Created time.Time
-	Updated time.Time
-
-	IssuerID int
+	ID           []byte     `json:"id"`
+	Key          []byte     `json:"key"`
+	Active       bool       `json:"active"`
+	Name         string     `json:"name"`
+	Tags         []string   `json:"tags"`
+	EndUserEmail string     `json:"endUserEmail"`
+	Note         string     `json:"note"`
+	Data         []byte     `json:"data"`
+	MaxSessions  int        `json:"maxSessions"`
+	ValidUntil   *time.Time `json:"validUntil"`
+	Created      time.Time  `json:"created"`
+	Updated      time.Time  `json:"updated"`
+	LastUsed     *time.Time `json:"lastUsed"`
+	IssuerID     int        `json:"-"`
+	ProductID    *int       `json:"productID"`
 }
